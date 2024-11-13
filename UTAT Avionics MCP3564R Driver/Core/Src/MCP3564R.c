@@ -31,7 +31,7 @@ float MCP3564_ReadVoltage(){
 	HAL_StatusTypeDef status;
 
 	status = HAL_SPI_Receive (MCP3564_hspi1, data, 2, 1000);
-	if (status != HAL_OK) return 0;
+
 
 	int16_t raw_accel = (int16_t)(data[0] << 8 | data[1]);
 
