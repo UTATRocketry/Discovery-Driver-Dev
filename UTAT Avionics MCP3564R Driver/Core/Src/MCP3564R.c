@@ -27,14 +27,16 @@ int MCP3564_CheckConnection(){
 // Reads voltage calculated from MCP3564, returns voltage in V
 float MCP3564_ReadVoltage(){
 
-	uint8_t data[2];
-	HAL_StatusTypeDef status;
+	uint8_t data[3];
+	HAL_StatusTypeDef status; //returns 0 if no problem
 
-	status = HAL_SPI_Receive (MCP3564_hspi1, data, 2, 1000);
-
-
-	int16_t raw_accel = (int16_t)(data[0] << 8 | data[1]);
+	status = HAL_SPI_Receive (MCP3564_hspi1, data, 3, 1000);
 
 
+	int32_t raw_voltage = (int16_t)(data[0] << 8 | data[1]);
+
+	//implement conversion from int to float
+
+	return raw_voltage;
 }
 
