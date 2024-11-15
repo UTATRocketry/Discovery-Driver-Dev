@@ -15,7 +15,7 @@ int MCP3564_Init(SPI_HandleTypeDef* hspi1){
 
     uint8_t data;
     HAL_StatusTypeDef status;
-
+// this is a comment
 }
 
 // Checks if the MCP3564 is connected to the SPI bus, returns 0 if successful, 1 if failed
