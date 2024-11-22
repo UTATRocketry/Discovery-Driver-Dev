@@ -47,7 +47,7 @@ int MCP3564_Init(SPI_HandleTypeDef* hspi1);
 int MCP3564_CheckConnection();
 
 // Reads voltage calculated from MCP3564, returns voltage in V
-float MCP3564_ReadVoltage();
+int MCP3564_ReadChannel();
 
 /*
 // Other functions to be implemented later?
