@@ -13,16 +13,15 @@ SPI_HandleTypeDef* MCP3564_hspi1;
 //Initializes MCP3564 on a particular SPI bus, returns 0 if successful, 1 if failed
 int MCP3564_Init(SPI_HandleTypeDef* hspi1){
 	MCP3564_hspi1 = hspi1;
-
+//connects hspi to ADC/check that its connected
     HAL_StatusTypeDef status;
 
-// this is a comment
 }
 
 // Checks if the MCP3564 is connected to the SPI bus, returns 0 if successful, 1 if failed
 int MCP3564_CheckConnection(){
 	//Checks if connected by verifying the mode, accessed through register 0x1
-
+	//am I able to read something from this?
 }
 
 // Reads voltage calculated from MCP3564, returns 0 if successful, 1 if failed
