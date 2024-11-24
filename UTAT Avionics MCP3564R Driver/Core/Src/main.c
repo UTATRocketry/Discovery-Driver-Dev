@@ -76,6 +76,10 @@ int main(void)
 
   /* USER CODE BEGIN 1 */
 
+	  unsigned char tx_buff[100];
+	  char spi_buff[100];
+	  int status;
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -102,12 +106,13 @@ int main(void)
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
 
-  unsigned char tx_buff[100];
+  //Drive ADC ~CS pin high because when high its not reading
+  //Pin C4 is our manual chip select line for the MCP3564R
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_4, GPIO_PIN_SET);
 
-  int status;
-
+  //Set ~CS low to begin reading and writing to chip
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_4, GPIO_PIN_RESET);
   status = MPU6050_Init(&hspi1);
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -115,7 +120,8 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-
+	  int32_t channelReading = 0;
+	  MCP3564_ReadChannel(&channelReading);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -363,6 +369,9 @@ static void MX_GPIO_Init(void)
   HAL_PWREx_EnableVddIO2();
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_4, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, LD3_Pin|LD2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
@@ -373,6 +382,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PC4 */
+  GPIO_InitStruct.Pin = GPIO_PIN_4;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pins : LD3_Pin LD2_Pin */
   GPIO_InitStruct.Pin = LD3_Pin|LD2_Pin;
