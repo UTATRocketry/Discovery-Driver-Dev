@@ -105,13 +105,8 @@ int main(void)
   MX_USB_OTG_FS_PCD_Init();
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
-
-  //Drive ADC ~CS pin high because when high its not reading
-  //Pin C4 is our manual chip select line for the MCP3564R
+  //Initially drive ADC ~CS pin high because when high its not reading
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_4, GPIO_PIN_SET);
-
-  //Set ~CS low to begin reading and writing to chip
-  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_4, GPIO_PIN_RESET);
   status = MPU6050_Init(&hspi1);
   /* USER CODE END 2 */
 
