@@ -50,7 +50,7 @@ int MCP3564_CheckConnection(){
 	if (status != HAL_OK) { // function didn't work???
 		return 1;
 	}
-	elif (dev_addr == 01) {
+	else if (dev_addr == 01) {
 		return 0; // device connected
 	}
 	return 1;
