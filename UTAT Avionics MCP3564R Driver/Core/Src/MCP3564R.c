@@ -33,7 +33,7 @@ int MCP3564_CheckConnection(){
 
 	//01 = device address, 0001 = CONFIG0, 01 = static read
 	uint8_t TxData = 0b01000101; // is this how you do this in C?
-	uint8_t RxData[8]; // create space for status byte
+	uint8_t RxData[1]; // create space for status byte
 	uint16_t Size = 1; // Size: 1 byte
 	uint32_t Timeout = 100; // this is arbitrary, pls help
 
@@ -45,7 +45,8 @@ int MCP3564_CheckConnection(){
 
 	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_4, GPIO_PIN_SET);
 
-	*dev_addr = ((int32_t)RxData[4] << 4 | (int32_t)RxData[5] << 4); // is the index the bit or the byte?
+	// GOAL: isolate device address bits: STAT[5:4]=DEV_ADDR[1:0]
+	int8_t dev_addr = ((int32_t)RxData[4] << 4 | (int32_t)RxData[5] << 4); // is the index the bit or the byte?
 	// check that STAT[5:4]=DEV_ADDR[1:0] == 01
 	if (status != HAL_OK) { // function didn't work???
 		return 1;
