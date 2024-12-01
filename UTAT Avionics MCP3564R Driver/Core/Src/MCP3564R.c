@@ -42,19 +42,21 @@ int MCP3564_CheckConnection(){
 	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_4, GPIO_PIN_RESET);
 
 	status = HAL_SPI_TransmitReceive(MCP3564_hspi, &TxData, &RxData, Size, Timeout);
+	if (status == HAL_ERROR) { // function didn't work???
+			return status;
+		}
 
 	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_4, GPIO_PIN_SET);
 
 	// GOAL: isolate device address bits: STAT[5:4]=DEV_ADDR[1:0]
-	// int8_t dev_addr = ((int32_t)RxData[4] << 4 | (int32_t)RxData[5] << 4); // is the index the bit or the byte?
+	uint8_t bit5 = (RxData >> 5) & 0x01;
+	uint8_t bit4 = (RxData >> 4) & 0x01;
 	// check that STAT[5:4]=DEV_ADDR[1:0] == 01
-	if (status != HAL_OK) { // function didn't work???
-		return 1;
+
+	if (bit5 != 0 && bit4 != 1) {
+		return 1; // device connected
 	}
-	else if (dev_addr == 01) {
-		return 0; // device connected
-	}
-	return 1;
+	return status;
 }
 
 // Reads voltage calculated from MCP3564, returns 0 if successful, 1 if failed
