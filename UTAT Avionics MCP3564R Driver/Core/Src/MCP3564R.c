@@ -7,18 +7,38 @@
 #include "MCP3564R.h"
 
 
-SPI_HandleTypeDef* MCP3564_hspi1;
+SPI_HandleTypeDef* MCP3564_hspi;
 
 
 //Initializes MCP3564 on a particular SPI bus, returns 0 if successful, 1 if failed
-int MCP3564_Init(SPI_HandleTypeDef* hspi1){
-	MCP3564_hspi = hspi1;
+int MCP3564_Init(SPI_HandleTypeDef* hspi){
+	HAL_StatusTypeDef status;
+	MCP3564_hspi = hspi;
+	int8_t command = 0b01000110;
 	//connects hspi to ADC/check that its connected
+	int status = MCP3564_CheckConnection();
+	if(status != 0){
+		return 1;
+	}
 	//set CS low
+	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_4, GPIO_PIN_RESET);
 	//send write command
-	//write to config register to enable active mode
-	//recieve status from STATUS byte
+	//01 = device address, 0001 = CONFIG0, 10 = incremental write
+	status = HAL_SPI_Transmit (MCP3564_hspi, &command, 1, 1000);
+	if(status == HAL_ERROR){
+		return status;
+	}
+	//1 = default Vref, 1 = not partial shutdown, 00 = extern. digital clk, 00 = no current applied, 11 = conversion mode
+	int8_t configWrite = 0b11000011;
+	//write to config register to enable conversion mode
+	status = HAL_SPI_Transmit (MCP3564_hspi, &configWrite, 1, 1000);
+	if(status == HAL_ERROR){
+		return status;
+	}
+	//set CS high
+	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_4, GPIO_PIN_SET);
 	//return 0 if successful
+	return 0;
 
 }
 
