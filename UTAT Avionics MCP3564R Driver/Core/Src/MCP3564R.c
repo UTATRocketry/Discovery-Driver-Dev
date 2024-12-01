@@ -72,7 +72,9 @@ int MCP3564_ReadChannel(int32_t *channelReading){
 		return status;
 	}
 	status = HAL_SPI_Receive (MCP3564_hspi, &data, 3, 1000);
-
+	if(status == HAL_ERROR){
+			return status;
+	}
 	//CS high
 	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_4, GPIO_PIN_SET);
 
