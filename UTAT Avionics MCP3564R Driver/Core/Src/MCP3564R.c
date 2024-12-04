@@ -16,7 +16,7 @@ int MCP3564_Init(SPI_HandleTypeDef* hspi){
 	MCP3564_hspi = hspi;
 	int8_t command = 0b01000110;
 	//connects hspi to ADC/check that its connected
-	int status = MCP3564_CheckConnection();
+	status = MCP3564_CheckConnection();
 	if(status != 0){
 		return 1;
 	}

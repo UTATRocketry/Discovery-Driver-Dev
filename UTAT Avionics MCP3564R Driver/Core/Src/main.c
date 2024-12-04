@@ -21,7 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "MCP3564R.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -107,7 +107,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   //Initially drive ADC ~CS pin high because when high its not reading
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_4, GPIO_PIN_SET);
-  status = MPU6050_Init(&hspi1);
+  status = MCP3564_Init(&hspi1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
