@@ -16,7 +16,7 @@ SPI_HandleTypeDef* MCP3564_hspi;
 int MCP3564_Init(SPI_HandleTypeDef* hspi/*, GPIO_TypeDef* GPIOpinLetter, uint16_t GPIO_PIN_Number*/){
 	HAL_StatusTypeDef status;
 	MCP3564_hspi = hspi;
-	int8_t command = 0b01000110;
+	uint8_t command = 0b01000110;
 	//connects hspi to ADC/check that its connected
 	status = MCP3564_CheckConnection();
 	if(status != 0){
@@ -31,7 +31,7 @@ int MCP3564_Init(SPI_HandleTypeDef* hspi/*, GPIO_TypeDef* GPIOpinLetter, uint16_
 		return status;
 	}
 	//1 = default Vref, 1 = not partial shutdown, 00 = extern. digital clk, 00 = no current applied, 11 = conversion mode
-	int8_t configWrite = 0b11000011;
+	uint8_t configWrite = 0b11000011;
 	//write to config register to enable conversion mode
 	status = HAL_SPI_Transmit (MCP3564_hspi, &configWrite, 1, 1000);
 	if(status == HAL_ERROR){
@@ -85,8 +85,8 @@ int MCP3564_CheckConnection(){
 int MCP3564_ReadChannel(int32_t *channelReading){
 
 	HAL_StatusTypeDef status;
-	int8_t data[3];
-	int8_t command = 0b01000001;
+	uint8_t data[3];
+	uint8_t command = 0b01000001;
 
 	//CS low
 	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_4, GPIO_PIN_RESET);
