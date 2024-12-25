@@ -74,9 +74,11 @@ int MCP3564_CheckConnection(){
 	uint8_t bit5 = (RxData >> 5) & 0x01;
 	uint8_t bit4 = (RxData >> 4) & 0x01;
 	// check that STAT[5:4]=DEV_ADDR[1:0] == 01
-
+	if (RxData == 0){
+		return 1;
+	}
 	if (bit5 != 0 && bit4 != 1) {
-		return 1; // device connected
+		return 0; // device connected
 	}
 	return status;
 }
@@ -96,7 +98,7 @@ int MCP3564_ReadChannel(int32_t *channelReading){
 	if(status == HAL_ERROR){
 		return status;
 	}
-	status = HAL_SPI_Receive (MCP3564_hspi, &data, 3, 1000);
+	status = HAL_SPI_Receive (MCP3564_hspi, data, 3, 1000);
 	if(status == HAL_ERROR){
 			return status;
 	}
