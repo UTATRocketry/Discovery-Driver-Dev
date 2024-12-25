@@ -6,12 +6,14 @@
  */
 #include "MCP3564R.h"
 
-
+//define external variables so compiler doesn't throw errors
 SPI_HandleTypeDef* MCP3564_hspi;
+//GPIO_TypeDef* GPIOpinLetter;
+//uint16_t GPIO_PIN_Number;
 
-
+//todo: make all pin assignments generic (after testing, for simplicity's sake)
 //Initializes MCP3564 on a particular SPI bus, returns 0 if successful, 1 if failed
-int MCP3564_Init(SPI_HandleTypeDef* hspi){
+int MCP3564_Init(SPI_HandleTypeDef* hspi/*, GPIO_TypeDef* GPIOpinLetter, uint16_t GPIO_PIN_Number*/){
 	HAL_StatusTypeDef status;
 	MCP3564_hspi = hspi;
 	int8_t command = 0b01000110;
@@ -55,7 +57,7 @@ int MCP3564_CheckConnection(){
 	uint8_t TxData = 0b01000101; // is this how you do this in C?
 	uint8_t RxData; // create space for status byte
 	uint16_t Size = 1; // Size: 1 byte
-	uint32_t Timeout = 100; // this is arbitrary, pls help
+	uint32_t Timeout = 1000; // timeout = 1000 ms?
 
 	//Pin C4 is our manual chip select line for the MCP3564R
 	//Set ~CS low to begin reading and writing to chip

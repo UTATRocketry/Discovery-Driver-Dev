@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "MCP3564R.h"
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -75,9 +76,6 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
-	  unsigned char tx_buff[100];
-	  char spi_buff[100];
 	  int status;
 
   /* USER CODE END 1 */
@@ -108,15 +106,19 @@ int main(void)
   //Initially drive ADC ~CS pin high because when high its not reading
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_4, GPIO_PIN_SET);
   status = MCP3564_Init(&hspi1);
+  printf("test %d", status);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+
+	 int32_t channelReading = 0;
+	 MCP3564_ReadChannel(&channelReading);
+	 printf("%ld", channelReading);
     /* USER CODE END WHILE */
-	  int32_t channelReading = 0;
-	  MCP3564_ReadChannel(&channelReading);
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -291,13 +293,13 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
   hspi1.Init.CRCPolynomial = 7;
   hspi1.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
-  hspi1.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+  hspi1.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
   if (HAL_SPI_Init(&hspi1) != HAL_OK)
   {
     Error_Handler();

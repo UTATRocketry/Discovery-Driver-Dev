@@ -8,7 +8,7 @@
 #ifndef INC_MCP3564R_H_
 #define INC_MCP3564R_H_
 
-#include "stm32l4xx_hal.h" /* Needed for I2C */
+#include "stm32l4xx_hal.h" /* Needed for SPI */
 
 /*
 ---Resources Used---
