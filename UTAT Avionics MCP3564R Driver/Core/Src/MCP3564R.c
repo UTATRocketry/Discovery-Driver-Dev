@@ -62,23 +62,20 @@ int MCP3564_CheckConnection(){
 	//Pin C4 is our manual chip select line for the MCP3564R
 	//Set ~CS low to begin reading and writing to chip
 	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_4, GPIO_PIN_RESET);
-
 	status = HAL_SPI_TransmitReceive(MCP3564_hspi, &TxData, &RxData, Size, Timeout);
 	if (status == HAL_ERROR) { // function didn't work???
 			return status;
 		}
-
 	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_4, GPIO_PIN_SET);
 
 	// GOAL: isolate device address bits: STAT[5:4]=DEV_ADDR[1:0]
-	uint8_t bit5 = (RxData >> 5) & 0x01;
-	uint8_t bit4 = (RxData >> 4) & 0x01;
-	// check that STAT[5:4]=DEV_ADDR[1:0] == 01
-	if (RxData == 0){
-		return 1;
-	}
-	if (bit5 != 0 && bit4 != 1) {
-		return 0; // device connected
+	uint8_t STAT4 = (RxData >> 4) & 0x01;
+	uint8_t STAT3 = (RxData >> 3) & 0x01;
+	// check that STAT4 != STAT3
+	if (STAT4 == STAT3) {
+		return 1; // device not connected
+	} else if (STAT4 != STAT3){
+		return 0; //device connected
 	}
 	return status;
 }
