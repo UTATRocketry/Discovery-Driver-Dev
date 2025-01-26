@@ -117,6 +117,7 @@ int main(void)
 	 int32_t channelReading = 0;
 	 status = MCP3564_ReadChannel(&channelReading);
 	 printf("%ld", channelReading);
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
