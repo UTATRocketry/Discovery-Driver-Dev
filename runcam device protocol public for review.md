@@ -18,6 +18,23 @@ Protocol Version | Protocol version | uint8_t
 Feature | Device feature | uint16_t, Refer to the Feature section for details
 crc8 | Check code| uint8_t
 
+##### CRC checksum implementation
+``` c
+uint8_t crc8_dvb_s2(uint8_t crc, unsigned char a)
+{
+    crc ^= a;
+    for (int ii = 0; ii < 8; ++ii) {
+        if (crc & 0x80) {
+            crc = (crc << 1) ^ 0xD5;
+        } else {
+            crc = crc << 1;
+        }
+    }
+
+    return crc;
+}
+```
+
 #### Feature
 Features | Value | Description
 --- | --- | --- 
@@ -29,6 +46,7 @@ RCDEVICE_PROTOCOL_FEATURE_DEVICE_SETTINGS_ACCESS | 1 << 4 | Support access to de
 RCDEVICE_PROTOCOL_FEATURE_DISPLAYP_PORT | 1 << 5 | The device is identified as a DisplayPort device by flying controller and receives the OSD data display from the flight controller
 RCDEVICE_PROTOCOL_FEATURE_START_RECORDING | 1 << 6 | Control the camera to start recording video
 RCDEVICE_PROTOCOL_FEATURE_STOP_RECORDING  | 1 << 7 | Control the camera to stop recording video
+
 ## 2. Camera control
 Command| ID |Function | Camera feature requirements
 --- | --- |--- | ---
@@ -81,7 +99,7 @@ RCDEVICE_PROTOCOL_COMMAND_5KEY_SIMULATION_RELEASE | 0x03 | Send the Release even
 
 ###### Request packet structure, the length is fixed to 3 bytes：
 Header | Command ID | crc8
---- | --- | --- | ---
+--- | --- | ---
 0xCC | 0x03 | Check code
 
 ###### Response packet structure, the length is fixed to 2 bytes：

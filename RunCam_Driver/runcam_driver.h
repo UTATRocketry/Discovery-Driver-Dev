@@ -44,7 +44,7 @@ typedef struct {
     char value[50];  // Assuming max length for a setting value
 } RunCam_Setting;
 
-#define RUNCAM_CRC8POLY                 0x97
+#define RUNCAM_CRC8POLY                 0xD5
 #define RUNCAM_PACKET_HEADER            0xCC
 
 // Timeout for initialization in milliseconds
@@ -58,9 +58,9 @@ typedef enum {
     RUNCAM_OK = 0,
     RUNCAM_UART_TX_FAIL,
     RUNCAM_UART_RX_FAIL,
-    RUNCAM_INVALID_RESPONSE
-	//RUNCAM_NO_RESPONSE,
-	//RUNCAM_UNKNOWN_ERROR
+	RUNCAM_NO_RESPONSE,
+    RUNCAM_INVALID_RESPONSE,
+	RUNCAM_UNKNOWN_ERROR,
 } runcam_status_t;
 
 // Function prototypes

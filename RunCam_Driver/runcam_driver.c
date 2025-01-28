@@ -32,9 +32,12 @@ static runcam_status_t runcam_transact(uint8_t *packet, uint8_t packet_len, uint
     }
 
     // Receive response packet
-    if (HAL_UART_Receive(runcam_huart, response, response_len, RUNCAM_UART_TIMEOUT) != HAL_OK) {
-    	return (runcam_status = RUNCAM_UART_RX_FAIL);
-    }
+    if (HAL_UART_Receive(runcam_huart, response, response_len, RUNCAM_UART_TIMEOUT) == HAL_TIMEOUT) {
+    	return (runcam_status = RUNCAM_NO_RESPONSE);
+    } else if (HAL_UART_Receive(runcam_huart, response, response_len, RUNCAM_UART_TIMEOUT) == HAL_ERROR) {
+    	return (runcam_status = RUNCAM_INVALID_RESPONSE);
+    } else if (HAL_UART_Receive(runcam_huart, response, response_len, RUNCAM_UART_TIMEOUT) != HAL_OK) {
+    	return (runcam_status = RUNCAM_UNKNOWN_ERROR);
 
     // Validate response header
     if (response[0] != RUNCAM_PACKET_HEADER) {
@@ -51,11 +54,11 @@ const char* runcam_status_to_string(runcam_status_t status) {
             return "Success";
         case RUNCAM_UART_TX_FAIL:
             return "RunCam UART Transmit Failed";
-        case RUNCAM_UART_RX_FAIL:
+        case RUNCAM_NO_RESPONSE:
             return "RunCam UART Receive Failed, No Response from Device";
         case RUNCAM_INVALID_RESPONSE:
             return "RunCam UART Receive Failed, Invalid Response from Device";
-        default:
+        case RUNCAM_UNKNOWN_ERROR:
             return "Unknown Error";
     }
 }

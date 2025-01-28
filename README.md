@@ -5,6 +5,7 @@ Driver development repo for Discovery avionics system.
 ## Run Cam Driver
 RunCam Device Protocol specification:
 http://note.youdao.com/groupshare/?token=9AD3F89F0B92488E8241F58CAEDF7939&gid=29699666
+https://support.runcam.com/hc/en-us/articles/360014537794-RunCam-Device-Protocol
 
 USART1 Settings:
     Mode: Asynchronous
