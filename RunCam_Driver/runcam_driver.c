@@ -126,10 +126,22 @@ runcam_status_t runcam_send_command(uint8_t command, uint8_t action) {
     return runcam_transact(packet, sizeof(packet), response, sizeof(response));
 }
 
+uint8_t crc8(uint8_t crc, uint8_t data) {
+    crc ^= data;
+    for (int i = 0; i < 8; i++) {
+        if (crc & 0x80) {
+            crc = (crc << 1) ^ RUNCAM_CRC8POLY;
+        } else {
+            crc <<= 1;
+        }
+    }
+    return crc;
+}
+
 uint8_t runcam_calculate_crc(uint8_t *data, uint8_t length) {
     uint8_t crc = 0;
     for (uint8_t i = 0; i < length; i++) {
-        crc ^= data[i];
+        crc = crc8(crc, data[i]);
     }
     return crc;
 }

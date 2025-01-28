@@ -15,7 +15,9 @@
 // Command IDs
 #define RUNCAM_CMD_GET_DEVICE_INFO   0x00
 #define RUNCAM_CMD_CAMERA_CONTROL    0x01
+#define RUNCAM_CMD_5KEY_SIMULATION   0x02
 #define RUNCAM_CMD_GET_SETTINGS      0x10
+#define RUNCAM_CMD_SETTING_DETAIL	 0x11
 #define RUNCAM_CMD_WRITE_SETTING     0x13
 
 // Action IDs for camera control
@@ -24,13 +26,14 @@
 #define RUNCAM_ACTION_START_RECORD  0x03
 #define RUNCAM_ACTION_STOP_RECORD   0x04
 
+// Action IDs for 5 key simulation
 // Setting IDs
 #define RUNCAM_SETTING_CHARSET	        0
 #define RUNCAM_SETTING_COLUMNS	        1
-#define RUNCAM_SETTING_TV_MODE	        2
-#define RUNCAM_SETTING_SDCARD_CAPACITY  3
-#define RUNCAM_SETTING_REMAINING_TIME   4
-#define RUNCAM_SETTING_RESOLUTION	    5
+#define RUNCAM_SETTING_TV_MODE	        2 // TEXT_SELECTION
+#define RUNCAM_SETTING_SDCARD_CAPACITY  3 // STRING
+#define RUNCAM_SETTING_REMAINING_TIME   4 // STRING
+#define RUNCAM_SETTING_RESOLUTION	    5 // TEXT_SELECTION
 #define RUNCAM_SETTING_CAMERA_TIME	    6
 #define NUM_RUNCAM_SETTINGS             7
 
@@ -41,13 +44,14 @@ typedef struct {
     char value[50];  // Assuming max length for a setting value
 } RunCam_Setting;
 
-#define RUNCAM_PACKET_HEADER        0xCC
+#define RUNCAM_CRC8POLY                 0x97
+#define RUNCAM_PACKET_HEADER            0xCC
 
 // Timeout for initialization in milliseconds
-#define RUNCAM_INIT_TIMEOUT          500
+#define RUNCAM_INIT_TIMEOUT             500
 
 // UART timeout in milliseconds
-#define RUNCAM_UART_TIMEOUT          1000
+#define RUNCAM_UART_TIMEOUT             1000
 
 // Status Codes
 typedef enum {
