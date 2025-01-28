@@ -1,8 +1,12 @@
 /**
  ******************************************************************************
- * @file    runcam_driver.h
- * @author  Amelia Ellis
- * @brief   RunCam  driver source file
+ * @file           : runcam_driver.h
+ * @brief          : Header file for RunCam driver
+ * 
+ * @author         : Amelia Ellis
+ * 
+ * @details        : Provides function prototypes, macros, and structures for
+ *                   interfacing with the RunCam camera over UART.
  ******************************************************************************
 */
 
@@ -37,48 +41,42 @@
 #define RUNCAM_SETTING_CAMERA_TIME	    6
 #define NUM_RUNCAM_SETTINGS             7
 
+// Miscellaneous constants
+#define RUNCAM_CRC8POLY               0xD5
+#define RUNCAM_PACKET_HEADER          0xCC
+#define RUNCAM_INIT_TIMEOUT           500  // Timeout for initialization (ms)
+#define RUNCAM_UART_TIMEOUT           1000 // UART timeout (ms)
 
-// Struct to hold setting values
-typedef struct {
-    uint8_t setting_id;
-    char value[50];  // Assuming max length for a setting value
-} RunCam_Setting;
-
-#define RUNCAM_CRC8POLY                 0xD5
-#define RUNCAM_PACKET_HEADER            0xCC
-
-// Timeout for initialization in milliseconds
-#define RUNCAM_INIT_TIMEOUT             500
-
-// UART timeout in milliseconds
-#define RUNCAM_UART_TIMEOUT             1000
-
-// Status Codes
+// Status codes for driver functions
 typedef enum {
     RUNCAM_OK = 0,
     RUNCAM_UART_TX_FAIL,
     RUNCAM_UART_RX_FAIL,
-	RUNCAM_NO_RESPONSE,
+    RUNCAM_NO_RESPONSE,
     RUNCAM_INVALID_RESPONSE,
-	RUNCAM_UNKNOWN_ERROR,
+    RUNCAM_UNKNOWN_ERROR,
 } runcam_status_t;
+
+// Structure for storing a RunCam setting
+typedef struct {
+    uint8_t setting_id;          /**< Setting ID */
+    char value[50];              /**< Value of the setting */
+} runcam_setting_t;
+
 
 // Function prototypes
 runcam_status_t runcam_init(UART_HandleTypeDef *huart);
 runcam_status_t runcam_get_device_info(uint8_t *response);
 runcam_status_t runcam_get_setting(uint8_t setting_id, uint8_t *response, uint8_t chunk_index);
-runcam_status_t runcam_get_all_settings(RunCam_Setting *settings);
+runcam_status_t runcam_get_all_settings(runcam_setting_t *settings);
 runcam_status_t runcam_write_setting(uint8_t setting_id, uint8_t *value, uint8_t value_length);
 runcam_status_t runcam_send_command(uint8_t command, uint8_t action);
-
-// Global status variable
-extern runcam_status_t runcam_status;
-
-// Function to get the status message
-const char* runcam_status_to_string(runcam_status_t status);
-
 uint8_t runcam_calculate_crc(uint8_t *data, uint8_t length);
 
+const char* runcam_status_to_string(runcam_status_t status);
+
+
+// Camera control functions
 void runcam_start_recording(void);
 void runcam_stop_recording(void);
 void runcam_change_mode(void);
