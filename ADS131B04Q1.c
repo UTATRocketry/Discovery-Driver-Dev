@@ -86,6 +86,7 @@ int ADS131B04Q1_CheckConnection() {
 /*
  * @brief
  * Configures the ADC to use the specified oversampling ratio.
+ * Untested!
  * @param configNum
  * @return int
  */
