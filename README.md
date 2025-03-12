@@ -1,2 +1,2 @@
-# Discovery-Driver-Dev
-Driver development repo for Discovery avionics system.
+# Power Management Board Driver
+Driver for the power management board.
