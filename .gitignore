@@ -1,0 +1,17 @@
+# IDE and editor settings
+.vscode/
+*.launch
+*.uvoptx
+*.uvprojx
+*.dep
+*.dsk
+*.cproject
+*.project
+*.settings/
+*.sublime-project
+*.sublime-workspace
+.idea/
+*.iml
+
+Debug/
+.settings/
