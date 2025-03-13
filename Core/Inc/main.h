@@ -57,6 +57,28 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define MCU_GSEPWR_EN_Pin GPIO_PIN_8
+#define MCU_GSEPWR_EN_GPIO_Port GPIOF
+#define MCU_BATT_EN_Pin GPIO_PIN_9
+#define MCU_BATT_EN_GPIO_Port GPIOF
+#define MCU_OSC_IN_Pin GPIO_PIN_0
+#define MCU_OSC_IN_GPIO_Port GPIOH
+#define V8V4_IN_Pin GPIO_PIN_0
+#define V8V4_IN_GPIO_Port GPIOC
+#define V24_IN_Pin GPIO_PIN_1
+#define V24_IN_GPIO_Port GPIOC
+#define BATT_IN_Pin GPIO_PIN_2
+#define BATT_IN_GPIO_Port GPIOC
+#define MAIN_IN_Pin GPIO_PIN_3
+#define MAIN_IN_GPIO_Port GPIOC
+#define VOUT_ISENSE_8V4_Pin GPIO_PIN_10
+#define VOUT_ISENSE_8V4_GPIO_Port GPIOE
+#define VOUT_ISENSE_24V_Pin GPIO_PIN_11
+#define VOUT_ISENSE_24V_GPIO_Port GPIOE
+#define VOUT_ISENSE_MAIN_Pin GPIO_PIN_12
+#define VOUT_ISENSE_MAIN_GPIO_Port GPIOE
+#define MCU_LED_1_Pin GPIO_PIN_13
+#define MCU_LED_1_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
