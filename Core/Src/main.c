@@ -130,6 +130,7 @@ int main(void) {
 
 		/* USER CODE BEGIN 3 */
 		HAL_UART_Transmit(&hlpuart1, test_buffer, 15, 100);
+		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
 		//LPUART_printf("test message #%d", i);
 		HAL_Delay(500);
 	}
