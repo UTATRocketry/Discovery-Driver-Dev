@@ -42,8 +42,10 @@
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
 #define CHUNK_SIZE 4096
-#define RAW_IMAGE_SIZE 16384 // 128x128 square image
+#define RAW_IMAGE_SIZE 4096 // 64x64 square image
 #define UART_BUF 128
+#define JPEG_OUTPUT_SIZE 4096 // Final JPEG output size
+#define JPEG_BUF_SIZE 2048 //
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -57,7 +59,7 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 char TX_buf[16];
 uint8_t raw_image[RAW_IMAGE_SIZE];  // Raw pixel data (RGB)
-uint8_t jpeg_output[JPEG_OUTPUT_SIZE];  // JPEG compressed output
+uint8_t jpeg_output[JPEG_BUF_SIZE];  // JPEG compressed output
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -83,14 +85,14 @@ int UART_printf(const char *fmt, ...) {
 	len = vsnprintf(buf, sizeof(buf), fmt, args);
 	va_end(args);
 
-	HAL_UART_Transmit(&huart2, (uint8_t*) buf, len, HAL_MAX_DELAY);
+	HAL_UART_Transmit(&huart2, (uint8_t*) buf, len, 1000);
 
 	return len;
 }
 
 // Reads a chunk of the JPEG, returns number bytes read
 size_t read_jpeg_chunk(uint8_t *buffer, size_t max_size, size_t offset) {
-	size_t jpegSize;
+	size_t jpegSize = JPEG_OUTPUT_SIZE;
 
 	if (offset >= jpegSize) {
 		return 0; // No more data
@@ -116,8 +118,7 @@ void transmit_jpeg() {
 	// Keep transmitting until there are no more bytes left
 	while ((bytesRead = read_jpeg_chunk(buf, CHUNK_SIZE, offset)) > 0) {
 		// Transmit current chunk and handle error
-		if (HAL_UART_Transmit(&huart2, buf, bytesRead, HAL_MAX_DELAY)
-				!= HAL_OK) {
+		if (HAL_UART_Transmit(&huart2, buf, bytesRead, 1000) != HAL_OK) {
 			break;
 		}
 		offset += bytesRead;
@@ -146,19 +147,17 @@ void compress_random_image() {
 	}
 
 	status = HAL_JPEG_Encode(&hjpeg, raw_image, RAW_IMAGE_SIZE, jpeg_output,
-			JPEG_BUFFER_SIZE,
-			HAL_MAX_DELAY);
+			sizeof(jpeg_output), 1000);
 
 	if (status == HAL_OK) {
-		printf("JPEG Encoding Done\n");
-		// Here, you can, for example, send jpeg_output over UART, store it to SD card, etc.
+		UART_printf("JPEG Encoding Done\n");
+		transmit_jpeg();
 	} else {
 		// Handle the error
-		printf("JPEG Encoding Failed!\n");
+		UART_printf("JPEG Encoding Failed!\n");
 	}
 }
 
-void log()
 /* USER CODE END 0 */
 
 /**
@@ -227,10 +226,10 @@ int main(void) {
 	/* USER CODE BEGIN 2 */
 	// read_matrix("image_data.txt", image);
 	// print_matrix(image);
-	HAL_JPEG_Encode(&hjpeg, pDataInMCU, InDataLength, pDataOut, OutDataLength,
-			Timeout);
+	//void compress_random_image();
 	//HAL_UART_Transmit(&huart2, (uint8_t*) "Done!", 32, 10);
-	UART_printf("Done!");
+	//UART_printf("Done!");
+	int i = 0;
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
@@ -239,6 +238,10 @@ int main(void) {
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
+		// UART_printf("message %d", i);
+		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
+		HAL_Delay(2000);
+		i++;
 	}
 	/* USER CODE END 3 */
 }
