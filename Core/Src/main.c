@@ -72,6 +72,7 @@ void debug_printf(const char *format, ...) {
 	// Transmit the formatted string via UART
 	HAL_UART_Transmit(&hlpuart1, (uint8_t*) buffer, strlen(buffer), 100);
 	// swv
+	uint16_t i = 0;
 	while(buffer[i] != '\\0') {
 	    ITM_SendChar(buffer[i]);
 	    i++;
@@ -132,7 +133,7 @@ int main(void)
 	uint8_t test_buffer[15] = "test message\n\r";
 
 	//doing loop back mode rn
-	HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING); //enable interrupt for when rx fifo0 gets a message
+	HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING); //enable interrupt for when rx fifo0 gets a message
 	TxHeader.DLC = 1; //how many byte sending
 	TxHeader.ExtId = 0; // are we using extended CAN
 	TxHeader.IDE = CAN_ID_STD;
@@ -141,7 +142,7 @@ int main(void)
 	TxHeader.TransmitGlobalTime = DISABLE;
 	TxData[0] = 0xf3;
 
-	if (HAL_CAN_AddTxMessage(&hcan, &TxHeader, &TxData[0], &TxMailbox[0])
+	if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, &TxData[0], &TxMailbox)
 			!= HAL_OK) {
 		Error_Handler();
 	}
@@ -270,7 +271,7 @@ static void MX_CAN1_Init(void)
 	canfilterconfig.FilterScale = CAN_FILTERSCALE_32BIT; //ID and mask registor will be 32 bit wide
 	//canfilterconfig.SlaveStartFilterBank = 13;  Usless for L4 since only has one CAN
 
-	HAL_CAN_ConfigFilter(&hcan, &canfilterconfig);
+	HAL_CAN_ConfigFilter(&hcan1, &canfilterconfig);
 
   /* USER CODE END CAN1_Init 2 */
 
