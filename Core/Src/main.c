@@ -33,7 +33,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define UART_BUFFER 256
+#define DEBUG_BUF 256
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -63,17 +63,17 @@ static void MX_LPUART1_UART_Init(void);
  * @param ...
  */
 void debug_printf(const char *format, ...) {
-	char buffer[UART_BUFFER];  // Buffer to hold formatted string
+	char buffer[DEBUG_BUF];  // Buffer to hold formatted string
 	va_list args;
 	va_start(args, format);
 	vsnprintf(buffer, sizeof(buffer), format, args);
 	va_end(args);
 
 	// Transmit the formatted string via UART
-	HAL_UART_Transmit(&hlpuart1, (uint8_t*) buffer, strlen(buffer), 100);
+	//HAL_UART_Transmit(&hlpuart1, (uint8_t*) buffer, strlen(buffer), 100);
 	// swv
 	uint16_t i = 0;
-	while(buffer[i] != '\\0') {
+	while(buffer[i] != '\0') {
 	    ITM_SendChar(buffer[i]);
 	    i++;
 	}
@@ -130,8 +130,6 @@ int main(void)
 	HAL_GPIO_TogglePin(GPIOF, MCU_GSEPWR_EN_Pin);
 	HAL_CAN_Start(&hcan1);
 
-	uint8_t test_buffer[15] = "test message\n\r";
-
 	//doing loop back mode rn
 	HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING); //enable interrupt for when rx fifo0 gets a message
 	TxHeader.DLC = 1; //how many byte sending
@@ -142,8 +140,7 @@ int main(void)
 	TxHeader.TransmitGlobalTime = DISABLE;
 	TxData[0] = 0xf3;
 
-	if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, &TxData[0], &TxMailbox)
-			!= HAL_OK) {
+	if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, &TxData[0], &TxMailbox) != HAL_OK) {
 		Error_Handler();
 	}
 	int i = 0;
@@ -170,10 +167,9 @@ int main(void)
 		if (RxData[3] == 1) {
 			int current_8V4 = HAL_GPIO_ReadPin(GPIOE, VOUT_ISENSE_8V4_Pin) * 10;
 			int current_24V = HAL_GPIO_ReadPin(GPIOE, VOUT_ISENSE_24V_Pin) * 10;
-			int current_main = HAL_GPIO_ReadPin(GPIOE, VOUT_ISENSE_MAIN_Pin)
-					* 10;
+			int current_main = HAL_GPIO_ReadPin(GPIOE, VOUT_ISENSE_MAIN_Pin) * 10;
 		}
-		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
+		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);
 		debug_printf("test message #%d", i);
 		i++;
 		HAL_Delay(500);
@@ -350,7 +346,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOF, MCU_GSEPWR_EN_Pin|MCU_BATT_EN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, MCU_LED_1_Pin|GPIO_PIN_7, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, MCU_LED_1_Pin|GPIO_PIN_14, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_11, GPIO_PIN_RESET);
@@ -374,8 +370,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : MCU_LED_1_Pin PB7 */
-  GPIO_InitStruct.Pin = MCU_LED_1_Pin|GPIO_PIN_7;
+  /*Configure GPIO pins : MCU_LED_1_Pin PB14 */
+  GPIO_InitStruct.Pin = MCU_LED_1_Pin|GPIO_PIN_14;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
