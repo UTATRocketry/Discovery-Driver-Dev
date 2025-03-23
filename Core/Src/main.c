@@ -62,7 +62,7 @@ static void MX_LPUART1_UART_Init(void);
  * @param format
  * @param ...
  */
-void LPUART_printf(const char *format, ...) {
+void debug_printf(const char *format, ...) {
 	char buffer[UART_BUFFER];  // Buffer to hold formatted string
 	va_list args;
 	va_start(args, format);
@@ -70,8 +70,12 @@ void LPUART_printf(const char *format, ...) {
 	va_end(args);
 
 	// Transmit the formatted string via UART
-	HAL_UART_Transmit(&hlpuart1, (uint8_t*) buffer, strlen(buffer),
-			100);
+	HAL_UART_Transmit(&hlpuart1, (uint8_t*) buffer, strlen(buffer), 100);
+	// swv
+	while(buffer[i] != '\\0') {
+	    ITM_SendChar(buffer[i]);
+	    i++;
+	}
 }
 /* USER CODE END PFP */
 
@@ -82,7 +86,6 @@ CAN_TxHeaderTypeDef TxHeader;
 uint8_t RxData[8];
 uint8_t TxData[8];
 uint32_t TxMailbox; //L4 has three mailbox for transmit
-
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) //interrupt function when message is detected in RX fifo 0
 {
@@ -123,28 +126,26 @@ int main(void)
   MX_CAN1_Init();
   MX_LPUART1_UART_Init();
   /* USER CODE BEGIN 2 */
-  HAL_GPIO_TogglePin(GPIOF, MCU_GSEPWR_EN_Pin);
-  HAL_CAN_Start(&hcan1);
+	HAL_GPIO_TogglePin(GPIOF, MCU_GSEPWR_EN_Pin);
+	HAL_CAN_Start(&hcan1);
 
-  uint8_t test_buffer[15] = "test message\n\r";
+	uint8_t test_buffer[15] = "test message\n\r";
 
-  //doing loop back mode rn
-  HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING); //enable interrupt for when rx fifo0 gets a message
-  TxHeader.DLC = 1; //how many byte sending
-  TxHeader.ExtId = 0; // are we using extended CAN
-  TxHeader.IDE = CAN_ID_STD;
-  TxHeader.RTR = CAN_RTR_DATA;
-  TxHeader.StdId = 0x103; //message idenitfier max 11 bit
-  TxHeader.TransmitGlobalTime = DISABLE;
-  TxData[0] = 0xf3;
+	//doing loop back mode rn
+	HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING); //enable interrupt for when rx fifo0 gets a message
+	TxHeader.DLC = 1; //how many byte sending
+	TxHeader.ExtId = 0; // are we using extended CAN
+	TxHeader.IDE = CAN_ID_STD;
+	TxHeader.RTR = CAN_RTR_DATA;
+	TxHeader.StdId = 0x103; //message idenitfier max 11 bit
+	TxHeader.TransmitGlobalTime = DISABLE;
+	TxData[0] = 0xf3;
 
-  if (HAL_CAN_AddTxMessage(&hcan, &TxHeader, &TxData[0], &TxMailbox[0]) != HAL_OK)
-  {
-	Error_Handler();
-  }
-
-
-
+	if (HAL_CAN_AddTxMessage(&hcan, &TxHeader, &TxData[0], &TxMailbox[0])
+			!= HAL_OK) {
+		Error_Handler();
+	}
+	int i = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -153,26 +154,27 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-		if (RxData[0] == 1){
+		if (RxData[0] == 1) {
 			HAL_GPIO_TogglePin(GPIOF, MCU_GSEPWR_EN_Pin);
 		}
-		if (RxData[1] == 1){
+		if (RxData[1] == 1) {
 			HAL_GPIO_TogglePin(GPIOF, MCU_BATT_EN_Pin);
 		}
-		if (RxData[2] == 1){
+		if (RxData[2] == 1) {
 			int voltage_8V4 = HAL_GPIO_ReadPin(GPIOC, V8V4_IN_Pin);
 			int voltage_24V = HAL_GPIO_ReadPin(GPIOC, V24_IN_Pin);
 			int voltage_batt = HAL_GPIO_ReadPin(GPIOC, BATT_IN_Pin);
 			int voltage_main = HAL_GPIO_ReadPin(GPIOC, MAIN_IN_Pin);
 		}
-		if (RxData[3] == 1){
+		if (RxData[3] == 1) {
 			int current_8V4 = HAL_GPIO_ReadPin(GPIOE, VOUT_ISENSE_8V4_Pin) * 10;
 			int current_24V = HAL_GPIO_ReadPin(GPIOE, VOUT_ISENSE_24V_Pin) * 10;
-			int current_main = HAL_GPIO_ReadPin(GPIOE,VOUT_ISENSE_MAIN_Pin) * 10 ;
+			int current_main = HAL_GPIO_ReadPin(GPIOE, VOUT_ISENSE_MAIN_Pin)
+					* 10;
 		}
-		HAL_UART_Transmit(&hlpuart1, test_buffer, 15, 100);
 		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
-		//LPUART_printf("test message #%d", i);
+		debug_printf("test message #%d", i);
+		i++;
 		HAL_Delay(500);
 	}
   /* USER CODE END 3 */
@@ -255,21 +257,20 @@ static void MX_CAN1_Init(void)
   }
   /* USER CODE BEGIN CAN1_Init 2 */
 
-  CAN_FilterTypeDef canfilterconfig;
+	CAN_FilterTypeDef canfilterconfig;
 
-  canfilterconfig.FilterActivation = CAN_FILTER_ENABLE; //enable to disable filters
-  canfilterconfig.FilterBank = 10;  // which filter bank to use(L4 has 28 all usable) note: filter bank is used to select which message to pass.
-  canfilterconfig.FilterFIFOAssignment = CAN_RX_FIFO0; // using fifo 0 for storing CAN message
-  canfilterconfig.FilterIdHigh = 0x103<<5; //set what each bit is compared to when filtering, shifting left by 5 because not using extended identifier
-  canfilterconfig.FilterIdLow = 0x0000;
-  canfilterconfig.FilterMaskIdHigh = 0x103<<5; //set which is bit will be compared when filtering (IDMASK mode)
-  canfilterconfig.FilterMaskIdLow = 0x0000;
-  canfilterconfig.FilterMode = CAN_FILTERMODE_IDMASK; //IDMASK or IDLIST(all bit needs to match in ID)
-  canfilterconfig.FilterScale = CAN_FILTERSCALE_32BIT; //ID and mask registor will be 32 bit wide
-  //canfilterconfig.SlaveStartFilterBank = 13;  Usless for L4 since only has one CAN
+	canfilterconfig.FilterActivation = CAN_FILTER_ENABLE; //enable to disable filters
+	canfilterconfig.FilterBank = 10; // which filter bank to use(L4 has 28 all usable) note: filter bank is used to select which message to pass.
+	canfilterconfig.FilterFIFOAssignment = CAN_RX_FIFO0; // using fifo 0 for storing CAN message
+	canfilterconfig.FilterIdHigh = 0x103 << 5; //set what each bit is compared to when filtering, shifting left by 5 because not using extended identifier
+	canfilterconfig.FilterIdLow = 0x0000;
+	canfilterconfig.FilterMaskIdHigh = 0x103 << 5; //set which is bit will be compared when filtering (IDMASK mode)
+	canfilterconfig.FilterMaskIdLow = 0x0000;
+	canfilterconfig.FilterMode = CAN_FILTERMODE_IDMASK; //IDMASK or IDLIST(all bit needs to match in ID)
+	canfilterconfig.FilterScale = CAN_FILTERSCALE_32BIT; //ID and mask registor will be 32 bit wide
+	//canfilterconfig.SlaveStartFilterBank = 13;  Usless for L4 since only has one CAN
 
-
-  HAL_CAN_ConfigFilter(&hcan, &canfilterconfig);
+	HAL_CAN_ConfigFilter(&hcan, &canfilterconfig);
 
   /* USER CODE END CAN1_Init 2 */
 
