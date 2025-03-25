@@ -193,7 +193,7 @@ int main(void)
 		TxData[6] = current_24V;
 		TxData[7] = current_main;
 
-		if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, &TxData[0], &TxMailbox) != HAL_OK) {
+		if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, &TxData, &TxMailbox) != HAL_OK) {
 			Error_Handler();
 		}
 
