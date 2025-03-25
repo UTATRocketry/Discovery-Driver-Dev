@@ -85,7 +85,7 @@ void debug_printf(const char *format, ...) {
 CAN_RxHeaderTypeDef RxHeader;
 CAN_TxHeaderTypeDef TxHeader;
 uint8_t RxData[8];
-uint8_t TxData[8];
+uint8_t TxData[8] = {0x14, 0x31, 0x84, 0x96, 0x30, 0x35, 0x90, 0xA2};
 uint32_t TxMailbox; //L4 has three mailbox for transmit
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) //interrupt function when message is detected in RX fifo 0
@@ -138,9 +138,8 @@ int main(void)
 	TxHeader.RTR = CAN_RTR_DATA;
 	TxHeader.StdId = 0x103; //message idenitfier max 11 bit
 	TxHeader.TransmitGlobalTime = DISABLE;
-	TxData[0] = 0xf3;
 
-	if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, &TxData[0], &TxMailbox) != HAL_OK) {
+	if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, &TxData, &TxMailbox) != HAL_OK) {
 		Error_Handler();
 	}
 	int i = 0;
@@ -148,31 +147,58 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+	uint8_t voltage_8V4;
+	uint8_t voltage_24V;
+	uint8_t voltage_batt;
+	uint8_t voltage_main;
+	uint8_t current_8V4;
+	uint8_t current_24V;
+	uint8_t current_main;
 	while (1) {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
 		if (RxData[0] == 1) {
 			HAL_GPIO_TogglePin(GPIOF, MCU_GSEPWR_EN_Pin);
 		}
 		if (RxData[1] == 1) {
 			HAL_GPIO_TogglePin(GPIOF, MCU_BATT_EN_Pin);
 		}
-		if (RxData[2] == 1) {
-			int voltage_8V4 = HAL_GPIO_ReadPin(GPIOC, V8V4_IN_Pin);
-			int voltage_24V = HAL_GPIO_ReadPin(GPIOC, V24_IN_Pin);
-			int voltage_batt = HAL_GPIO_ReadPin(GPIOC, BATT_IN_Pin);
-			int voltage_main = HAL_GPIO_ReadPin(GPIOC, MAIN_IN_Pin);
-		}
-		if (RxData[3] == 1) {
-			int current_8V4 = HAL_GPIO_ReadPin(GPIOE, VOUT_ISENSE_8V4_Pin) * 10;
-			int current_24V = HAL_GPIO_ReadPin(GPIOE, VOUT_ISENSE_24V_Pin) * 10;
-			int current_main = HAL_GPIO_ReadPin(GPIOE, VOUT_ISENSE_MAIN_Pin) * 10;
-		}
+		voltage_8V4 = HAL_GPIO_ReadPin(GPIOC, V8V4_IN_Pin) * (uint8_t)(4.99+10)/4.99;
+		voltage_24V = HAL_GPIO_ReadPin(GPIOC, V24_IN_Pin)* (uint8_t)(1+10)/1;
+		voltage_batt = HAL_GPIO_ReadPin(GPIOC, BATT_IN_Pin)* (uint8_t)(1+10)/1;
+		voltage_main = HAL_GPIO_ReadPin(GPIOC, MAIN_IN_Pin)* (uint8_t)(1+10)/1;
+		current_8V4 = HAL_GPIO_ReadPin(GPIOE, VOUT_ISENSE_8V4_Pin) * (uint8_t)10;
+		current_24V = HAL_GPIO_ReadPin(GPIOE, VOUT_ISENSE_24V_Pin) * (uint8_t)10;
+		current_main = HAL_GPIO_ReadPin(GPIOE, VOUT_ISENSE_MAIN_Pin) * (uint8_t)10;
+
 		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);
 		debug_printf("test message #%d", i);
 		i++;
-		HAL_Delay(500);
+//		debug_printf("voltage_8V4: #%d\n", voltage_8V4);
+//		debug_printf("voltage_24V: #%d\n", voltage_24V);
+//		debug_printf("voltage_batt: #%d\n",voltage_batt);
+//		debug_printf("voltage_main: #%d\n", voltage_main);
+//		debug_printf("current_8V4: #%d\n", current_8V4);
+//		debug_printf("current_24V: #%d\n", current_24V);
+//		debug_printf("current_main: #%d\n", current_main);
+
+		TxData[0] = voltage_8V4;
+		TxData[1] = voltage_24V;
+		TxData[2] = voltage_batt;
+		TxData[3] = voltage_main;
+		TxData[4] = voltage_8V4;
+		TxData[5] = current_8V4;
+		TxData[6] = current_24V;
+		TxData[7] = current_main;
+
+		if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, &TxData[0], &TxMailbox) != HAL_OK) {
+			Error_Handler();
+		}
+
+
+		HAL_Delay(10); //100 time per second
 	}
   /* USER CODE END 3 */
 }
