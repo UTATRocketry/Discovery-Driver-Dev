@@ -42,12 +42,26 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+
 CAN_HandleTypeDef hcan1;
 
 UART_HandleTypeDef hlpuart1;
 
 /* USER CODE BEGIN PV */
 
+uint16_t voltage_8V4;
+uint16_t voltage_24V;
+uint16_t voltage_batt;
+uint16_t voltage_main;
+uint16_t current_8V4;
+uint16_t current_24V;
+uint16_t current_main;
+CAN_RxHeaderTypeDef RxHeader;
+CAN_TxHeaderTypeDef TxHeader;
+uint8_t RxData[8];
+uint8_t TxData[8] = {0x01, 0x34 ,0x51,0x71,0x11,0x21,0x41,0x99};
+uint32_t TxMailbox;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -55,6 +69,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_CAN1_Init(void);
 static void MX_LPUART1_UART_Init(void);
+static void MX_ADC1_Init(void);
 /* USER CODE BEGIN PFP */
 /**
  * @brief 
@@ -62,36 +77,35 @@ static void MX_LPUART1_UART_Init(void);
  * @param format
  * @param ...
  */
-void debug_printf(const char *format, ...) {
-	char buffer[DEBUG_BUF];  // Buffer to hold formatted string
-	va_list args;
-	va_start(args, format);
-	vsnprintf(buffer, sizeof(buffer), format, args);
-	va_end(args);
-
-	// Transmit the formatted string via UART
-	//HAL_UART_Transmit(&hlpuart1, (uint8_t*) buffer, strlen(buffer), 100);
-	// swv
-	uint16_t i = 0;
-	while(buffer[i] != '\0') {
-	    ITM_SendChar(buffer[i]);
-	    i++;
-	}
-}
+//void debug_printf(const char *format, ...) {
+//	char buffer[DEBUG_BUF];  // Buffer to hold formatted string
+//	va_list args;
+//	va_start(args, format);
+//	vsnprintf(buffer, sizeof(buffer), format, args);
+//	va_end(args);
+//
+//	// Transmit the formatted string via UART
+//	//HAL_UART_Transmit(&hlpuart1, (uint8_t*) buffer, strlen(buffer), 100);
+//	// swv
+//	uint16_t i = 0;
+//	while(buffer[i] != '\0') {
+//	    ITM_SendChar(buffer[i]);
+//	    i++;
+//	}
+//}
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-CAN_RxHeaderTypeDef RxHeader;
-CAN_TxHeaderTypeDef TxHeader;
-uint8_t RxData[8];
-uint8_t TxData[8] = {0x14, 0x31, 0x84, 0x96, 0x30, 0x35, 0x90, 0xA2};
-uint32_t TxMailbox; //L4 has three mailbox for transmit
+
+ //L4 has three mailbox for transmit
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) //interrupt function when message is detected in RX fifo 0
 {
 	HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData);
 }
+
+
 
 /* USER CODE END 0 */
 
@@ -126,57 +140,96 @@ int main(void)
   MX_GPIO_Init();
   MX_CAN1_Init();
   MX_LPUART1_UART_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
-	HAL_GPIO_TogglePin(GPIOF, MCU_GSEPWR_EN_Pin);
+	HAL_GPIO_WritePin(GPIOF, MCU_GSEPWR_EN_Pin, GPIO_PIN_RESET);
 	HAL_CAN_Start(&hcan1);
 
 	//doing loop back mode rn
 	HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING); //enable interrupt for when rx fifo0 gets a message
-	TxHeader.DLC = 1; //how many byte sending
+	TxHeader.DLC = 8; //how many byte sending
 	TxHeader.ExtId = 0; // are we using extended CAN
 	TxHeader.IDE = CAN_ID_STD;
 	TxHeader.RTR = CAN_RTR_DATA;
 	TxHeader.StdId = 0x103; //message idenitfier max 11 bit
 	TxHeader.TransmitGlobalTime = DISABLE;
 
-	if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, &TxData, &TxMailbox) != HAL_OK) {
-	  Error_Handler();
-	}
-	int i = 0;
+//	if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, &TxData, &TxMailbox) != HAL_OK) {
+//	  Error_Handler();
+//	}
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-	uint8_t voltage_8V4;
-	uint8_t voltage_24V;
-	uint8_t voltage_batt;
-	uint8_t voltage_main;
-	uint8_t current_8V4;
-	uint8_t current_24V;
-	uint8_t current_main;
+	voltage_8V4 = 0x1;
+	voltage_24V = 0x1;
+	voltage_batt = 0x1;
+	voltage_main = 0x1;
+	current_8V4 = 0x1;
+	current_24V = 0x1;
+	current_main = 0x1;
+
+//	TxData[0] = 0x11;
+//	TxData[1] = 0x12;
+//	TxData[2] = 0x13;
+//	TxData[3] = 0x14;
+//	TxData[4] = 0x15;
+//	TxData[5] = 0x16;
+//	TxData[6] = 0x17;
+//	TxData[7] = 0x18;
+
 	while (1) {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
-		if (RxData[1] == 0x01) {
-			HAL_GPIO_TogglePin(GPIOF, MCU_GSEPWR_EN_Pin);
+//
+//		if (RxData[1] == 0x01) {
+//			HAL_GPIO_TogglePin(GPIOF, MCU_GSEPWR_EN_Pin);
+//		}
+//		if (RxData[2] == 0x01) {
+//			HAL_GPIO_TogglePin(GPIOF, MCU_BATT_EN_Pin);
+//		}
+//		voltage_8V4 = HAL_GPIO_ReadPin(GPIOC, V8V4_IN_Pin) * (uint8_t)(4.99+10)/4.99;
+//		voltage_24V = HAL_GPIO_ReadPin(GPIOC, V24_IN_Pin)* (uint8_t)(1+10)/1;
+//		voltage_batt = HAL_GPIO_ReadPin(GPIOC, BATT_IN_Pin)* (uint8_t)(1+10)/1;
+//		voltage_main = HAL_GPIO_ReadPin(GPIOC, MAIN_IN_Pin)* (uint8_t)(1+10)/1;
+//		current_8V4 = HAL_GPIO_ReadPin(GPIOE, VOUT_ISENSE_8V4_Pin) * (uint8_t)10;
+//		current_24V = HAL_GPIO_ReadPin(GPIOE, VOUT_ISENSE_24V_Pin) * (uint8_t)10;
+//		current_main = HAL_GPIO_ReadPin(GPIOE, VOUT_ISENSE_MAIN_Pin) * (uint8_t)10;
+		if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, &TxData, &TxMailbox) != HAL_OK) {
+			Error_Handler();
 		}
-		if (RxData[2] == 0x01) {
-			HAL_GPIO_TogglePin(GPIOF, MCU_BATT_EN_Pin);
-		}
-		voltage_8V4 = HAL_GPIO_ReadPin(GPIOC, V8V4_IN_Pin) * (uint8_t)(4.99+10)/4.99;
-		voltage_24V = HAL_GPIO_ReadPin(GPIOC, V24_IN_Pin)* (uint8_t)(1+10)/1;
-		voltage_batt = HAL_GPIO_ReadPin(GPIOC, BATT_IN_Pin)* (uint8_t)(1+10)/1;
-		voltage_main = HAL_GPIO_ReadPin(GPIOC, MAIN_IN_Pin)* (uint8_t)(1+10)/1;
-		current_8V4 = HAL_GPIO_ReadPin(GPIOE, VOUT_ISENSE_8V4_Pin) * (uint8_t)10;
-		current_24V = HAL_GPIO_ReadPin(GPIOE, VOUT_ISENSE_24V_Pin) * (uint8_t)10;
-		current_main = HAL_GPIO_ReadPin(GPIOE, VOUT_ISENSE_MAIN_Pin) * (uint8_t)10;
+		HAL_Delay(10);
 
-		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);
-		debug_printf("test message #%d", i);
-		i++;
-		debug_printf("voltage_8V4: #%d\n", voltage_8V4);
+
+		HAL_GPIO_WritePin(GPIOF, MCU_GSEPWR_EN_Pin, GPIO_PIN_RESET);
+		HAL_Delay(100);
+		HAL_GPIO_WritePin(GPIOF, MCU_GSEPWR_EN_Pin, GPIO_PIN_SET);
+		HAL_Delay(100);
+
+
+		HAL_ADC_Start(&hadc1);
+		HAL_ADC_PollForConversion(&hadc1, 100);
+		voltage_8V4 = HAL_ADC_GetValue(&hadc1);
+
+		HAL_ADC_Start(&hadc1);
+		HAL_ADC_PollForConversion(&hadc1, 100);
+		voltage_24V = HAL_ADC_GetValue(&hadc1);
+
+		HAL_ADC_Start(&hadc1);
+		HAL_ADC_PollForConversion(&hadc1, 100);
+		voltage_batt = HAL_ADC_GetValue(&hadc1);
+
+		HAL_ADC_Start(&hadc1);
+		HAL_ADC_PollForConversion(&hadc1, 100);
+		voltage_main = HAL_ADC_GetValue(&hadc1);
+
+		HAL_ADC_Stop(&hadc1);
+
+
+//		debug_printf("test message #%d", i);
+//		i++;
+//		debug_printf("voltage_8V4: #%d\n", voltage_8V4);
 //		debug_printf("voltage_24V: #%d\n", voltage_24V);
 //		debug_printf("voltage_batt: #%d\n",voltage_batt);
 //		debug_printf("voltage_main: #%d\n", voltage_main);
@@ -184,21 +237,8 @@ int main(void)
 //		debug_printf("current_24V: #%d\n", current_24V);
 //		debug_printf("current_main: #%d\n", current_main);
 
-//		TxData[0] = voltage_8V4;
-//		TxData[1] = voltage_24V;
-//		TxData[2] = voltage_batt;
-//		TxData[3] = voltage_main;
-//		TxData[4] = voltage_8V4;
-//		TxData[5] = current_8V4;
-//		TxData[6] = current_24V;
-//		TxData[7] = current_main;
-//
-//		if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, &TxData, &TxMailbox) != HAL_OK) {
-//			Error_Handler();
-//		}
 
-
-		HAL_Delay(10); //100 time per second
+		//HAL_Delay(250);
 	}
   /* USER CODE END 3 */
 }
@@ -254,6 +294,95 @@ void SystemClock_Config(void)
 }
 
 /**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+
+  /** Common config
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV16;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  hadc1.Init.LowPowerAutoWait = DISABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.NbrOfConversion = 4;
+  hadc1.Init.DiscontinuousConvMode = ENABLE;
+  hadc1.Init.NbrOfDiscConversion = 1;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+  hadc1.Init.OversamplingMode = DISABLE;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_1;
+  sConfig.Rank = ADC_REGULAR_RANK_1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_640CYCLES_5;
+  sConfig.SingleDiff = ADC_SINGLE_ENDED;
+  sConfig.OffsetNumber = ADC_OFFSET_NONE;
+  sConfig.Offset = 0;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_2;
+  sConfig.Rank = ADC_REGULAR_RANK_2;
+  sConfig.SamplingTime = ADC_SAMPLETIME_247CYCLES_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_3;
+  sConfig.Rank = ADC_REGULAR_RANK_3;
+  sConfig.SamplingTime = ADC_SAMPLETIME_47CYCLES_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_4;
+  sConfig.Rank = ADC_REGULAR_RANK_4;
+  sConfig.SamplingTime = ADC_SAMPLETIME_12CYCLES_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
+}
+
+/**
   * @brief CAN1 Initialization Function
   * @param None
   * @retval None
@@ -270,7 +399,7 @@ static void MX_CAN1_Init(void)
   /* USER CODE END CAN1_Init 1 */
   hcan1.Instance = CAN1;
   hcan1.Init.Prescaler = 16;
-  hcan1.Init.Mode = CAN_MODE_LOOPBACK;
+  hcan1.Init.Mode = CAN_MODE_NORMAL;
   hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
   hcan1.Init.TimeSeg1 = CAN_BS1_2TQ;
   hcan1.Init.TimeSeg2 = CAN_BS2_1TQ;
@@ -390,15 +519,9 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : V8V4_IN_Pin V24_IN_Pin BATT_IN_Pin MAIN_IN_Pin */
-  GPIO_InitStruct.Pin = V8V4_IN_Pin|V24_IN_Pin|BATT_IN_Pin|MAIN_IN_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : VOUT_ISENSE_8V4_Pin VOUT_ISENSE_24V_Pin VOUT_ISENSE_MAIN_Pin */
-  GPIO_InitStruct.Pin = VOUT_ISENSE_8V4_Pin|VOUT_ISENSE_24V_Pin|VOUT_ISENSE_MAIN_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  /*Configure GPIO pins : IV8_IN_Pin IV24_IN_Pin IMAIN_IN_Pin */
+  GPIO_InitStruct.Pin = IV8_IN_Pin|IV24_IN_Pin|IMAIN_IN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
