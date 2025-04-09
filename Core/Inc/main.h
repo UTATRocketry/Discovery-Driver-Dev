@@ -61,8 +61,6 @@ void Error_Handler(void);
 #define MCU_GSEPWR_EN_GPIO_Port GPIOF
 #define MCU_BATT_EN_Pin GPIO_PIN_9
 #define MCU_BATT_EN_GPIO_Port GPIOF
-#define MCU_OSC_IN_Pin GPIO_PIN_0
-#define MCU_OSC_IN_GPIO_Port GPIOH
 #define V8V4_IN_Pin GPIO_PIN_0
 #define V8V4_IN_GPIO_Port GPIOC
 #define V24_IN_Pin GPIO_PIN_1
@@ -83,6 +81,8 @@ void Error_Handler(void);
 #define VCP_TX_GPIO_Port GPIOB
 #define MCU_LED_1_Pin GPIO_PIN_13
 #define MCU_LED_1_GPIO_Port GPIOB
+#define CAN1_STBY_Pin GPIO_PIN_11
+#define CAN1_STBY_GPIO_Port GPIOC
 
 /* USER CODE BEGIN Private defines */
 

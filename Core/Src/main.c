@@ -140,7 +140,7 @@ int main(void)
 	TxHeader.TransmitGlobalTime = DISABLE;
 
 	if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, &TxData, &TxMailbox) != HAL_OK) {
-		Error_Handler();
+	  Error_Handler();
 	}
 	int i = 0;
   /* USER CODE END 2 */
@@ -159,10 +159,10 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-		if (RxData[0] == 1) {
+		if (RxData[1] == 0x01) {
 			HAL_GPIO_TogglePin(GPIOF, MCU_GSEPWR_EN_Pin);
 		}
-		if (RxData[1] == 1) {
+		if (RxData[2] == 0x01) {
 			HAL_GPIO_TogglePin(GPIOF, MCU_BATT_EN_Pin);
 		}
 		voltage_8V4 = HAL_GPIO_ReadPin(GPIOC, V8V4_IN_Pin) * (uint8_t)(4.99+10)/4.99;
@@ -176,7 +176,7 @@ int main(void)
 		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_14);
 		debug_printf("test message #%d", i);
 		i++;
-//		debug_printf("voltage_8V4: #%d\n", voltage_8V4);
+		debug_printf("voltage_8V4: #%d\n", voltage_8V4);
 //		debug_printf("voltage_24V: #%d\n", voltage_24V);
 //		debug_printf("voltage_batt: #%d\n",voltage_batt);
 //		debug_printf("voltage_main: #%d\n", voltage_main);
@@ -184,18 +184,18 @@ int main(void)
 //		debug_printf("current_24V: #%d\n", current_24V);
 //		debug_printf("current_main: #%d\n", current_main);
 
-		TxData[0] = voltage_8V4;
-		TxData[1] = voltage_24V;
-		TxData[2] = voltage_batt;
-		TxData[3] = voltage_main;
-		TxData[4] = voltage_8V4;
-		TxData[5] = current_8V4;
-		TxData[6] = current_24V;
-		TxData[7] = current_main;
-
-		if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, &TxData, &TxMailbox) != HAL_OK) {
-			Error_Handler();
-		}
+//		TxData[0] = voltage_8V4;
+//		TxData[1] = voltage_24V;
+//		TxData[2] = voltage_batt;
+//		TxData[3] = voltage_main;
+//		TxData[4] = voltage_8V4;
+//		TxData[5] = current_8V4;
+//		TxData[6] = current_24V;
+//		TxData[7] = current_main;
+//
+//		if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, &TxData, &TxMailbox) != HAL_OK) {
+//			Error_Handler();
+//		}
 
 
 		HAL_Delay(10); //100 time per second
@@ -226,7 +226,13 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.MSIState = RCC_MSI_ON;
   RCC_OscInitStruct.MSICalibrationValue = 0;
   RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_6;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_MSI;
+  RCC_OscInitStruct.PLL.PLLM = 1;
+  RCC_OscInitStruct.PLL.PLLN = 16;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
+  RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -236,12 +242,12 @@ void SystemClock_Config(void)
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_MSI;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
   {
     Error_Handler();
   }
@@ -263,7 +269,7 @@ static void MX_CAN1_Init(void)
 
   /* USER CODE END CAN1_Init 1 */
   hcan1.Instance = CAN1;
-  hcan1.Init.Prescaler = 20;
+  hcan1.Init.Prescaler = 16;
   hcan1.Init.Mode = CAN_MODE_LOOPBACK;
   hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
   hcan1.Init.TimeSeg1 = CAN_BS1_2TQ;
@@ -372,10 +378,10 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOF, MCU_GSEPWR_EN_Pin|MCU_BATT_EN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, MCU_LED_1_Pin|GPIO_PIN_14, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(MCU_LED_1_GPIO_Port, MCU_LED_1_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_11, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(CAN1_STBY_GPIO_Port, CAN1_STBY_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : MCU_GSEPWR_EN_Pin MCU_BATT_EN_Pin */
   GPIO_InitStruct.Pin = MCU_GSEPWR_EN_Pin|MCU_BATT_EN_Pin;
@@ -396,19 +402,19 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : MCU_LED_1_Pin PB14 */
-  GPIO_InitStruct.Pin = MCU_LED_1_Pin|GPIO_PIN_14;
+  /*Configure GPIO pin : MCU_LED_1_Pin */
+  GPIO_InitStruct.Pin = MCU_LED_1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  HAL_GPIO_Init(MCU_LED_1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PC11 */
-  GPIO_InitStruct.Pin = GPIO_PIN_11;
+  /*Configure GPIO pin : CAN1_STBY_Pin */
+  GPIO_InitStruct.Pin = CAN1_STBY_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+  HAL_GPIO_Init(CAN1_STBY_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PH3 */
   GPIO_InitStruct.Pin = GPIO_PIN_3;
