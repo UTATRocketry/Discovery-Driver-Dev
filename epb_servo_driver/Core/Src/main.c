@@ -58,7 +58,9 @@ TIM_HandleTypeDef htim5;
 TIM_HandleTypeDef htim16;
 
 /* USER CODE BEGIN PV */
-
+CAN_TxHeaderTypeDef pHeader;
+uint32_t TxMailbox;
+uint8_t dummyData;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -204,6 +206,11 @@ int main(void)
 
   /* --------------------------- ADS --------------------------- */
 
+    pHeader.DLC=1; // 1 byte for now but i have no idea why (based on https://youtu.be/ymD3F0h-ilE?si=p-_ooJEZVid1YJxc&t=546)
+    pHeader.IDE=CAN_ID_STD;
+    pHeader.RTR=CAN_RTR_DATA;
+    pHeader.StdId=0x244;
+
     int status = 0;
 
     int32_t channelReading1 = 0;
@@ -264,6 +271,13 @@ int main(void)
 
 	  sprintf((char*)tx_buff, "CH1: %f V\n\r", voltsChannelReading1);
 	  HAL_UART_Transmit(&hlpuart1, tx_buff, strlen((char*)tx_buff), 1000);
+	  uint8_t dummyData = 11111111;
+
+	  //sample CAN communication MAYBE?????????
+	  status = HAL_CAN_AddTxMessage(&hcan1, &pHeader, &dummyData, &TxMailbox);
+	  if(status != HAL_OK){
+			  return 1;
+	  }
 
 	  sprintf((char*)tx_buff, "CH2: %f V\n\r", voltsChannelReading2);
 	  HAL_UART_Transmit(&hlpuart1, tx_buff, strlen((char*)tx_buff), 1000);
