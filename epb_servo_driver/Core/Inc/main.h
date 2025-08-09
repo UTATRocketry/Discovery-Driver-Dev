@@ -59,12 +59,16 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define CS_Pin GPIO_PIN_15
+#define CS_GPIO_Port GPIOF
 #define USB_OverCurrent_Pin GPIO_PIN_5
 #define USB_OverCurrent_GPIO_Port GPIOG
 #define STLINK_TX_Pin GPIO_PIN_7
 #define STLINK_TX_GPIO_Port GPIOG
 #define STLINK_RX_Pin GPIO_PIN_8
 #define STLINK_RX_GPIO_Port GPIOG
+#define ADC_DRDY_Pin GPIO_PIN_5
+#define ADC_DRDY_GPIO_Port GPIOD
 
 /* USER CODE BEGIN Private defines */
 

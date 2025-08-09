@@ -56,9 +56,6 @@
 
 /* External variables --------------------------------------------------------*/
 extern TIM_HandleTypeDef htim16;
-extern CAN_TxHeaderTypeDef pHeader;
-extern uint32_t TxMailbox;
-extern uint8_t dummyData;
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
