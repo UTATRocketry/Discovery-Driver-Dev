@@ -81,6 +81,27 @@ static void MX_UART5_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+/* ------------------ configure CAN ------------------  */
+CAN_TxHeaderTypeDef TxHeader;
+CAN_RxHeaderTypeDef RxHeader;
+
+// mailbox to send the data
+uint32_t TxMailbox;
+
+// buffers for transmit and receive
+uint8_t TxData[8];
+uint8_t RxData[8];
+
+
+// we'll eventually receive data in this message pending callback
+uint8_t count = 0; // for now, just to test, we'll just increment the count
+
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan1) {
+	count++;
+}
+
+/* ------------------ configure timer ------------------  */
+
 // number values represents which timer channel it actually is (if you only want three channels, just have it in twice
   enum ch {
 	  CH1 = 1,
@@ -187,6 +208,33 @@ int main(void)
   MX_UART5_Init();
   /* USER CODE BEGIN 2 */
 
+  /* --------------------------- CAN --------------------------- */
+
+  HAL_CAN_Start(&hcan1);
+
+  HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING); // activate notification of receiving data (we need to write the interrupt timer)
+
+  //before sending the data to the CAN, modify the header:
+  TxHeader.DLC = 1; // length of data to transmit in bytes
+  TxHeader.ExtId = 0; // zero for basic CAN protocol
+  TxHeader.IDE = CAN_ID_STD; // specifies the identifier (either CAN_ID_STD or CAN_ID_EXT)
+  TxHeader.RTR = CAN_RTR_DATA; // because we're sending data
+  TxHeader.StdId = 0x103; // we can give any identifier for this CAN peripheral
+  TxHeader.TransmitGlobalTime = DISABLE; // just keep it disabled
+
+  // send the data to the CAN
+
+  TxData[0] = 0xf3; // sample data
+
+  int status = 0;
+  status = HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
+  if(status != HAL_OK){
+		  debug_transmit("CAN Communication failed\n");
+  } else {
+	  debug_transmit("CAN Communication success\n");
+	  // data received to CAN_RX_FIFO0 --> callback will be called for the FIFO0_MSG_PENDING
+  }
+
   /* --------------------------- SERVO --------------------------- */
 
   // set the PWM frequency, initialise and configure the PWM signal generation for all timer 3 channels
@@ -211,7 +259,7 @@ int main(void)
     pHeader.RTR=CAN_RTR_DATA;
     pHeader.StdId=0x244;
 
-    int status = 0;
+//    int status = 0;
 
     int32_t channelReading1 = 0;
   	int32_t channelReading2 = 0;
@@ -271,15 +319,6 @@ int main(void)
 
 	  sprintf((char*)tx_buff, "CH1: %f V\n\r", voltsChannelReading1);
 	  HAL_UART_Transmit(&hlpuart1, tx_buff, strlen((char*)tx_buff), 1000);
-	  uint8_t dummyData = 11111111;
-
-	  //sample CAN communication MAYBE?????????
-	  status = HAL_CAN_AddTxMessage(&hcan1, &pHeader, &dummyData, &TxMailbox);
-	  if(status != HAL_OK){
-			  debug_transmit("CAN Communication failed\n");
-	  } else {
-		  debug_transmit("CAN Communication success\n");
-	  }
 
 	  sprintf((char*)tx_buff, "CH2: %f V\n\r", voltsChannelReading2);
 	  HAL_UART_Transmit(&hlpuart1, tx_buff, strlen((char*)tx_buff), 1000);
@@ -434,6 +473,20 @@ static void MX_CAN1_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN CAN1_Init 2 */
+
+  CAN_FilterTypeDef canfilterconfig;
+  canfilterconfig.FilterActivation = CAN_FILTER_ENABLE;
+  canfilterconfig.FilterBank = 10;
+  canfilterconfig.FilterFIFOAssignment = CAN_RX_FIFO0;
+  canfilterconfig.FilterIdHigh = 0;
+  canfilterconfig.FilterIdLow = 0x0000;
+  canfilterconfig.FilterMaskIdHigh = 0;
+  canfilterconfig.FilterMaskIdLow = 0x0000;
+  canfilterconfig.FilterMode = CAN_FILTERMODE_IDMASK;
+  canfilterconfig.FilterScale = CAN_FILTERSCALE_32BIT;
+  canfilterconfig.SlaveStartFilterBank = 0;
+
+  HAL_CAN_ConfigFilter(&hcan1, &canfilterconfig);
 
   /* USER CODE END CAN1_Init 2 */
 
