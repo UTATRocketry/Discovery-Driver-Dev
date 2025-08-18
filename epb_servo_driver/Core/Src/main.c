@@ -222,7 +222,7 @@ int main(void)
   TxHeader.StdId = 0x103; // we can give any identifier for this CAN peripheral
   TxHeader.TransmitGlobalTime = DISABLE; // just keep it disabled
 
-  // send the data to the CAN
+  // send the data to the CAN <-------------------------------------------- WRITTEN BUT NOT TESTED!!!!!!!!!!!!!!!!!!!
 
   TxData[0] = 0xf3; // sample data
 
