@@ -70,10 +70,10 @@ static void MX_LPUART1_UART_Init(void);
 static void MX_TIM16_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_CAN1_Init(void);
-static void MX_TIM5_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_SPI3_Init(void);
 static void MX_UART5_Init(void);
+static void MX_TIM5_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -202,10 +202,10 @@ int main(void)
   MX_TIM16_Init();
   MX_TIM3_Init();
   MX_CAN1_Init();
-  MX_TIM5_Init();
   MX_ADC1_Init();
   MX_SPI3_Init();
   MX_UART5_Init();
+  MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
 
   /* --------------------------- CAN --------------------------- */
@@ -711,7 +711,7 @@ static void MX_TIM5_Init(void)
 
   /* USER CODE END TIM5_Init 1 */
   htim5.Instance = TIM5;
-  htim5.Init.Prescaler = 0;
+  htim5.Init.Prescaler = 59999;
   htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim5.Init.Period = 5;
   htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
