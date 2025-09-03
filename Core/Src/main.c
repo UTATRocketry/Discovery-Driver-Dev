@@ -174,6 +174,8 @@ int main(void)
 				break;
 		}
 
+
+
 		// DECODE
 
 		heatshrink_decoder_reset(&decoder);
