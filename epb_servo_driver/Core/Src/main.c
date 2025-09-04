@@ -111,6 +111,22 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan1) {
   };
 
 /*
+ * take in a float voltage and transmit via CAN
+ * checking HAL_OK and communicating via debug_transmit
+ */
+void CAN_transmit_voltage(float voltsChannelReading) {
+	TxHeader.DLC = sizeof(voltsChannelReading); // length of data to transmit in bytes (does this work like thissss?)
+	TxData[0] = voltsChannelReading; // sample data
+
+	int status = 0;
+	status = HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
+	if(status != HAL_OK){
+		  debug_transmit("CAN Communication failed\n");
+	} else {
+	  debug_transmit("CAN Communication success\n");
+}
+
+  /*
  * to see these:
  * open Putty
  * 	connection type: serial
@@ -333,8 +349,10 @@ int main(void)
 
 	  // transmit voltage readings and current voltage stuffs through CAN?
 
-	  // test these
-
+	  CAN_transmit_voltage(voltsChannelReading1);
+	  CAN_transmit_voltage(voltsChannelReading2);
+	  CAN_transmit_voltage(voltsChannelReading3);
+	  CAN_transmit_voltage(voltsChannelReading4);
 
     /* USER CODE END WHILE */
 
