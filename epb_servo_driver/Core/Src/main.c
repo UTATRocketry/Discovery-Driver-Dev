@@ -187,6 +187,8 @@ int main(void)
 
   /* USER CODE BEGIN Init */
 
+  // CURRENT ERROR: HAL_TIMEOUT in stm32l4xx_hal_rcc.c [line: 564]
+
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -254,10 +256,10 @@ int main(void)
 
   /* --------------------------- ADS --------------------------- */
 
-    pHeader.DLC=1; // 1 byte for now but i have no idea why (based on https://youtu.be/ymD3F0h-ilE?si=p-_ooJEZVid1YJxc&t=546)
-    pHeader.IDE=CAN_ID_STD;
-    pHeader.RTR=CAN_RTR_DATA;
-    pHeader.StdId=0x244;
+//    pHeader.DLC=1; // 1 byte for now but i have no idea why (based on https://youtu.be/ymD3F0h-ilE?si=p-_ooJEZVid1YJxc&t=546)
+//    pHeader.IDE=CAN_ID_STD;
+//    pHeader.RTR=CAN_RTR_DATA;
+//    pHeader.StdId=0x244;
 
 //    int status = 0;
 
@@ -328,6 +330,12 @@ int main(void)
 
 	  sprintf((char*)tx_buff, "CH4: %f V\n\r", voltsChannelReading4);
 	  HAL_UART_Transmit(&hlpuart1, tx_buff, strlen((char*)tx_buff), 1000);
+
+	  // transmit voltage readings and current voltage stuffs through CAN?
+
+	  // test these
+
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
