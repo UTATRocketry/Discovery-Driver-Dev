@@ -1,20 +1,20 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2025 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2025 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -92,23 +92,25 @@ uint32_t TxMailbox;
 uint8_t TxData[8];
 uint8_t RxData[8];
 
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
+{
+    CAN_RxHeaderTypeDef RxHeader;
+    uint8_t RxData[8];
 
-// we'll eventually receive data in this message pending callback
-uint8_t count = 0; // for now, just to test, we'll just increment the count
-
-void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan1) {
-	count++;
+    if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK)
+    {
+        // ✅ At this point, the interrupt flag is cleared automatically
+        // because the message has been released from FIFO.
+        // You can now process RxData here.
+    }
 }
 
 /* ------------------ configure timer ------------------  */
 
 // number values represents which timer channel it actually is (if you only want three channels, just have it in twice
-  enum ch {
-	  CH1 = 1,
-	  CH2 = 2,
-	  CH3 = 3,
-	  CH4 = 1 // so channel 4 gets no signal
-  };
+enum ch {
+	CH1 = 1, CH2 = 2, CH3 = 3, CH4 = 1 // so channel 4 gets no signal
+};
 
 /*
  * take in a float voltage and transmit via CAN
@@ -120,68 +122,74 @@ void CAN_transmit_voltage(float voltsChannelReading) {
 
 	int status = 0;
 	status = HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
-	if(status != HAL_OK){
-		  debug_transmit("CAN Communication failed\n");
+	if (status != HAL_OK) {
+		debug_transmit("CAN Communication failed\n");
 	} else {
-	  debug_transmit("CAN Communication success\n");
-}
-
-  /*
- * to see these:
- * open Putty
- * 	connection type: serial
- * 	under serial settings:
- * 		serial line connect to: {COM# in Device Manager under Ports>STM COM Port}
- * 		baud rate = 209700
- * 		flow control: none
- */
-void debug_transmit(const char * message) {
-	HAL_UART_Transmit(&hlpuart1, message, strlen(message) + 1, 1000);
-}
-
-double width1 = MIN_PULSE_WIDTH;
-double width2 = NEUTRAL_PULSE_WIDTH;
-double width3 = MAX_PULSE_WIDTH;
-
-/*
- * set pulse width and transmit debug responses for a given channel
- */
-void set_width(double width, TIM_HandleTypeDef *p_htim, uint8_t ch) {
-	uint8_t fail = servo_driver_set_pw(&width, p_htim, ch);
-    if (fail != 0) {
-    	debug_transmit("\nSetting pulse width failed\n");
-	} else if (width == width1){
-		debug_transmit("\nPulse width set to min\n");
-	} else if (width == width2) {
-		debug_transmit("\nPulse width set to neutral\n");
-	} else if (width == width3) {
-		debug_transmit("\nPulse width set to max\n");
-	} else {
-		debug_transmit("\nNot a valid pulse width\n");
+		debug_transmit("CAN Communication success\n");
 	}
 }
 
-/*
- * rotate though the minimum, neutral, and maximum pulse widths for a given channel
- */
-void test_angles(TIM_HandleTypeDef *p_htim, uint8_t ch) {
-	if (ch == 1) {debug_transmit("\nCHANNEL 1 TEST\n");}
-	else if (ch == 2) {debug_transmit("CHANNEL 2 TEST\n");}
-	else if (ch == 3) {debug_transmit("CHANNEL 3 TEST\n");}
-	else if (ch == 4) {debug_transmit("CHANNEL 4 TEST\n");}
+	/*
+	 * to see these:
+	 * open Putty
+	 * 	connection type: serial
+	 * 	under serial settings:
+	 * 		serial line connect to: {COM# in Device Manager under Ports>STM COM Port}
+	 * 		baud rate = 209700
+	 * 		flow control: none
+	 */
+	void debug_transmit(const char *message) {
+		HAL_UART_Transmit(&hlpuart1, message, strlen(message) + 1, 1000);
+	}
 
-	// min
-	set_width(width1, p_htim, ch);
-	HAL_Delay(1000);
+	double width1 = MIN_PULSE_WIDTH;
+	double width2 = NEUTRAL_PULSE_WIDTH;
+	double width3 = MAX_PULSE_WIDTH;
 
-	// neutral
-	set_width(width2, p_htim, ch);
-	HAL_Delay(1000);
+	/*
+	 * set pulse width and transmit debug responses for a given channel
+	 */
+	void set_width(double width, TIM_HandleTypeDef *p_htim, uint8_t ch) {
+		uint8_t fail = servo_driver_set_pw(&width, p_htim, ch);
+		if (fail != 0) {
+			debug_transmit("\nSetting pulse width failed\n");
+		} else if (width == width1) {
+			debug_transmit("\nPulse width set to min\n");
+		} else if (width == width2) {
+			debug_transmit("\nPulse width set to neutral\n");
+		} else if (width == width3) {
+			debug_transmit("\nPulse width set to max\n");
+		} else {
+			debug_transmit("\nNot a valid pulse width\n");
+		}
+	}
 
-	// max
-	set_width(width3, p_htim, ch);
-	HAL_Delay(1000);
-}
+	/*
+	 * rotate though the minimum, neutral, and maximum pulse widths for a given channel
+	 */
+	void test_angles(TIM_HandleTypeDef *p_htim, uint8_t ch) {
+		if (ch == 1) {
+			debug_transmit("\nCHANNEL 1 TEST\n");
+		} else if (ch == 2) {
+			debug_transmit("CHANNEL 2 TEST\n");
+		} else if (ch == 3) {
+			debug_transmit("CHANNEL 3 TEST\n");
+		} else if (ch == 4) {
+			debug_transmit("CHANNEL 4 TEST\n");
+		}
+
+		// min
+		set_width(width1, p_htim, ch);
+		HAL_Delay(1000);
+
+		// neutral
+		set_width(width2, p_htim, ch);
+		HAL_Delay(1000);
+
+		// max
+		set_width(width3, p_htim, ch);
+		HAL_Delay(1000);
+	}
 
 /* USER CODE END 0 */
 
@@ -203,8 +211,7 @@ int main(void)
 
   /* USER CODE BEGIN Init */
 
-  // CURRENT ERROR: HAL_TIMEOUT in stm32l4xx_hal_rcc.c [line: 564]
-
+		// CURRENT ERROR: HAL_TIMEOUT in stm32l4xx_hal_rcc.c [line: 564]
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -226,138 +233,140 @@ int main(void)
   MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
 
-  /* --------------------------- CAN --------------------------- */
+		/* --------------------------- CAN --------------------------- */
 
-  HAL_CAN_Start(&hcan1);
+		HAL_CAN_Start(&hcan1);
 
-  HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING); // activate notification of receiving data (we need to write the interrupt timer)
+		HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING); // activate notification of receiving data (we need to write the interrupt timer)
 
-  //before sending the data to the CAN, modify the header:
-  TxHeader.DLC = 1; // length of data to transmit in bytes
-  TxHeader.ExtId = 0; // zero for basic CAN protocol
-  TxHeader.IDE = CAN_ID_STD; // specifies the identifier (either CAN_ID_STD or CAN_ID_EXT)
-  TxHeader.RTR = CAN_RTR_DATA; // because we're sending data
-  TxHeader.StdId = 0x103; // we can give any identifier for this CAN peripheral
-  TxHeader.TransmitGlobalTime = DISABLE; // just keep it disabled
+		//before sending the data to the CAN, modify the header:
+		TxHeader.DLC = 1; // length of data to transmit in bytes
+		TxHeader.ExtId = 0; // zero for basic CAN protocol
+		TxHeader.IDE = CAN_ID_STD; // specifies the identifier (either CAN_ID_STD or CAN_ID_EXT)
+		TxHeader.RTR = CAN_RTR_DATA; // because we're sending data
+		TxHeader.StdId = 0x103; // we can give any identifier for this CAN peripheral
+		TxHeader.TransmitGlobalTime = DISABLE; // just keep it disabled
 
-  // send the data to the CAN <-------------------------------------------- WRITTEN BUT NOT TESTED!!!!!!!!!!!!!!!!!!!
+		// send the data to the CAN <-------------------------------------------- WRITTEN BUT NOT TESTED!!!!!!!!!!!!!!!!!!!
 
-  TxData[0] = 0xf3; // sample data
+		TxData[0] = 0xf3; // sample data
 
-  int status = 0;
-  status = HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
-  if(status != HAL_OK){
-		  debug_transmit("CAN Communication failed\n");
-  } else {
-	  debug_transmit("CAN Communication success\n");
-	  // data received to CAN_RX_FIFO0 --> callback will be called for the FIFO0_MSG_PENDING
-  }
+		int status = 0;
+		status = HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
+		if (status != HAL_OK) {
+			debug_transmit("CAN Communication failed\n");
+		} else {
+			debug_transmit("CAN Communication success\n");
+			// data received to CAN_RX_FIFO0 --> callback will be called for the FIFO0_MSG_PENDING
+		}
 
-  /* --------------------------- SERVO --------------------------- */
+		/* --------------------------- SERVO --------------------------- */
 
-  // set the PWM frequency, initialise and configure the PWM signal generation for all timer 3 channels
-  uint32_t freq = 50;
-  uint8_t fail3 = init_servo_channels(&freq, &htim3, CH1, CH3, CH1, CH1);
-  if (fail3) {
-	  debug_transmit("\nInitialisation failed\n");
-  } else {
-	  debug_transmit("\nTimer 3 Channels initialised successfully\n");
-  }
-  uint8_t fail5 = init_servo_channels(&freq, &htim5, CH1, CH1, CH1, CH1);
-    if (fail5) {
-  	  debug_transmit("\nInitialisation failed\n");
-    } else {
-  	  debug_transmit("\nTimer 5 Channels initialised successfully\n");
-    }
+		// set the PWM frequency, initialise and configure the PWM signal generation for all timer 3 channels
+		uint32_t freq = 50;
+		uint8_t fail3 = init_servo_channels(&freq, &htim3, CH1, CH3, CH1, CH1);
+		if (fail3) {
+			debug_transmit("\nInitialisation failed\n");
+		} else {
+			debug_transmit("\nTimer 3 Channels initialised successfully\n");
+		}
+		uint8_t fail5 = init_servo_channels(&freq, &htim5, CH1, CH1, CH1, CH1);
+		if (fail5) {
+			debug_transmit("\nInitialisation failed\n");
+		} else {
+			debug_transmit("\nTimer 5 Channels initialised successfully\n");
+		}
 
-  /* --------------------------- ADS --------------------------- */
+		/* --------------------------- ADS --------------------------- */
 
 //    pHeader.DLC=1; // 1 byte for now but i have no idea why (based on https://youtu.be/ymD3F0h-ilE?si=p-_ooJEZVid1YJxc&t=546)
 //    pHeader.IDE=CAN_ID_STD;
 //    pHeader.RTR=CAN_RTR_DATA;
 //    pHeader.StdId=0x244;
-
 //    int status = 0;
+		int32_t channelReading1 = 0;
+		int32_t channelReading2 = 0;
+		int32_t channelReading3 = 0;
+		int32_t channelReading4 = 0;
 
-    int32_t channelReading1 = 0;
-  	int32_t channelReading2 = 0;
-  	int32_t channelReading3 = 0;
-  	int32_t channelReading4 = 0;
+		float voltsChannelReading1 = 0;
+		float voltsChannelReading2 = 0;
+		float voltsChannelReading3 = 0;
+		float voltsChannelReading4 = 0;
 
-  	float voltsChannelReading1 = 0;
-  	float voltsChannelReading2 = 0;
-  	float voltsChannelReading3 = 0;
-  	float voltsChannelReading4 = 0;
+		unsigned char tx_buff[100];
 
-  	unsigned char tx_buff[100];
-
-  	status = ADS131B04Q1_Init(&hspi3, GPIOA, GPIO_PIN_3);
-  	  if(status == 1){
-  	  	return 1;
-  	  }
-  	status = ADS131B04Q1_OSRConfig(7);
-  	  if(status == 1){
-  		return 1;
-  	  }
-  	status = ADS131B04Q1_Calibrate(0, 0.0002, 3, 3.0002, 1);
-  	  if(status == 1){
-  		return 1;
-  	  }
+		status = ADS131B04Q1_Init(&hspi3, GPIOA, GPIO_PIN_3);
+		if (status == 1) {
+			Error_Handler();
+		}
+		status = ADS131B04Q1_OSRConfig(7);
+		if (status == 1) {
+			Error_Handler();
+		}
+		status = ADS131B04Q1_Calibrate(0, 0.0002, 3, 3.0002, 1);
+		if (status == 1) {
+			Error_Handler();
+		}
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-	  /* --------------------------- SERVO --------------------------- */
+		while (1) {
+			/* --------------------------- SERVO --------------------------- */
 
-	  test_angles(&htim3, CH1);
-	  test_angles(&htim3, CH3);
-	  test_angles(&htim5, CH1);
+			test_angles(&htim3, CH1);
+			test_angles(&htim3, CH3);
+			test_angles(&htim5, CH1);
 
-	  /* --------------------------- ADS --------------------------- */
+			/* --------------------------- ADS --------------------------- */
 
-	  //returns signed 2s complement number as a fraction of range
-	  status = ADS131B04Q1_ReadChannels(&channelReading1, &channelReading2, &channelReading3, &channelReading4);
-	  if(status == 1){
-			  return 1;
-	  }
+			//returns signed 2s complement number as a fraction of range
+			status = ADS131B04Q1_ReadChannels(&channelReading1,
+					&channelReading2, &channelReading3, &channelReading4);
+			if (status == 1) {
+				Error_Handler();
+			}
 
-	  //convert signed values to voltage values
-	  voltsChannelReading1 = ADS131B04Q1_RawToVoltage(channelReading1, 1);
-	  voltsChannelReading2 = ADS131B04Q1_RawToVoltage(channelReading2, 2);
-	  voltsChannelReading3 = ADS131B04Q1_RawToVoltage(channelReading3, 3);
-	  voltsChannelReading4 = ADS131B04Q1_RawToVoltage(channelReading4, 4);
+			//convert signed values to voltage values
+			voltsChannelReading1 = ADS131B04Q1_RawToVoltage(channelReading1, 1);
+			voltsChannelReading2 = ADS131B04Q1_RawToVoltage(channelReading2, 2);
+			voltsChannelReading3 = ADS131B04Q1_RawToVoltage(channelReading3, 3);
+			voltsChannelReading4 = ADS131B04Q1_RawToVoltage(channelReading4, 4);
 
-	  /*
-	   *to use the float type:
-	   *Project > Properties > C/C++ Build > Settings > Tool Settings > MCU/MPU Settings > Use float with printf from newlib-nano (-u_printf_float)"
-	   */
+			/*
+			 *to use the float type:
+			 *Project > Properties > C/C++ Build > Settings > Tool Settings > MCU/MPU Settings > Use float with printf from newlib-nano (-u_printf_float)"
+			 */
 
-	  sprintf((char*)tx_buff, "CH1: %f V\n\r", voltsChannelReading1);
-	  HAL_UART_Transmit(&hlpuart1, tx_buff, strlen((char*)tx_buff), 1000);
+			sprintf((char*) tx_buff, "CH1: %f V\n\r", voltsChannelReading1);
+			HAL_UART_Transmit(&hlpuart1, tx_buff, strlen((char*) tx_buff),
+					1000);
 
-	  sprintf((char*)tx_buff, "CH2: %f V\n\r", voltsChannelReading2);
-	  HAL_UART_Transmit(&hlpuart1, tx_buff, strlen((char*)tx_buff), 1000);
+			sprintf((char*) tx_buff, "CH2: %f V\n\r", voltsChannelReading2);
+			HAL_UART_Transmit(&hlpuart1, tx_buff, strlen((char*) tx_buff),
+					1000);
 
-	  sprintf((char*)tx_buff, "CH3: %f V\n\r", voltsChannelReading3);
-	  HAL_UART_Transmit(&hlpuart1, tx_buff, strlen((char*)tx_buff), 1000);
+			sprintf((char*) tx_buff, "CH3: %f V\n\r", voltsChannelReading3);
+			HAL_UART_Transmit(&hlpuart1, tx_buff, strlen((char*) tx_buff),
+					1000);
 
-	  sprintf((char*)tx_buff, "CH4: %f V\n\r", voltsChannelReading4);
-	  HAL_UART_Transmit(&hlpuart1, tx_buff, strlen((char*)tx_buff), 1000);
+			sprintf((char*) tx_buff, "CH4: %f V\n\r", voltsChannelReading4);
+			HAL_UART_Transmit(&hlpuart1, tx_buff, strlen((char*) tx_buff),
+					1000);
 
-	  // transmit voltage readings and current voltage stuffs through CAN?
+			// transmit voltage readings and current voltage stuffs through CAN?
 
-	  CAN_transmit_voltage(voltsChannelReading1);
-	  CAN_transmit_voltage(voltsChannelReading2);
-	  CAN_transmit_voltage(voltsChannelReading3);
-	  CAN_transmit_voltage(voltsChannelReading4);
+			CAN_transmit_voltage(voltsChannelReading1);
+			CAN_transmit_voltage(voltsChannelReading2);
+			CAN_transmit_voltage(voltsChannelReading3);
+			CAN_transmit_voltage(voltsChannelReading4);
 
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-  }
+		}
   /* USER CODE END 3 */
 }
 
@@ -380,12 +389,13 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
   RCC_OscInitStruct.PLL.PLLM = 1;
-  RCC_OscInitStruct.PLL.PLLN = 30;
+  RCC_OscInitStruct.PLL.PLLN = 15;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
   RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
   RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
@@ -500,19 +510,19 @@ static void MX_CAN1_Init(void)
   }
   /* USER CODE BEGIN CAN1_Init 2 */
 
-  CAN_FilterTypeDef canfilterconfig;
-  canfilterconfig.FilterActivation = CAN_FILTER_ENABLE;
-  canfilterconfig.FilterBank = 10;
-  canfilterconfig.FilterFIFOAssignment = CAN_RX_FIFO0;
-  canfilterconfig.FilterIdHigh = 0;
-  canfilterconfig.FilterIdLow = 0x0000;
-  canfilterconfig.FilterMaskIdHigh = 0;
-  canfilterconfig.FilterMaskIdLow = 0x0000;
-  canfilterconfig.FilterMode = CAN_FILTERMODE_IDMASK;
-  canfilterconfig.FilterScale = CAN_FILTERSCALE_32BIT;
-  canfilterconfig.SlaveStartFilterBank = 0;
+		CAN_FilterTypeDef canfilterconfig;
+		canfilterconfig.FilterActivation = CAN_FILTER_ENABLE;
+		canfilterconfig.FilterBank = 10;
+		canfilterconfig.FilterFIFOAssignment = CAN_RX_FIFO0;
+		canfilterconfig.FilterIdHigh = 0;
+		canfilterconfig.FilterIdLow = 0x0000;
+		canfilterconfig.FilterMaskIdHigh = 0;
+		canfilterconfig.FilterMaskIdLow = 0x0000;
+		canfilterconfig.FilterMode = CAN_FILTERMODE_IDMASK;
+		canfilterconfig.FilterScale = CAN_FILTERSCALE_32BIT;
+		canfilterconfig.SlaveStartFilterBank = 0;
 
-  HAL_CAN_ConfigFilter(&hcan1, &canfilterconfig);
+		HAL_CAN_ConfigFilter(&hcan1, &canfilterconfig);
 
   /* USER CODE END CAN1_Init 2 */
 
@@ -893,11 +903,10 @@ static void MX_GPIO_Init(void)
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
-  /* User can add his own implementation to report the HAL error return state */
-  __disable_irq();
-  while (1)
-  {
-  }
+		/* User can add his own implementation to report the HAL error return state */
+		__disable_irq();
+		while (1) {
+		}
   /* USER CODE END Error_Handler_Debug */
 }
 
