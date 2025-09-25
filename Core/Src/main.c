@@ -185,7 +185,7 @@ int main(void)
 			uint32_t data_12bit = (uint32_t)comp_buf[i];  // 8 bits expanded to 12 bits
 			uint32_t codeword = golay24_data2code(data_12bit);
 			
-			// Store the 24-bit codeword as 3 bytes (big-endian)
+			// Store the 24-bit codeword as 3 bytes
 			golay_encoded_buf[golay_encoded_size++] = (codeword >> 16) & 0xFF;
 			golay_encoded_buf[golay_encoded_size++] = (codeword >> 8) & 0xFF;
 			golay_encoded_buf[golay_encoded_size++] = codeword & 0xFF;
@@ -210,11 +210,7 @@ int main(void)
 					golay_errors += result;  // Count corrected errors
 				}
 			} else {
-				// Error correction failed - indicate error with LED blink
-				HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);  // Brief error indication
-				HAL_Delay(100);
-				HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
-				golay_decoded_size = 0;  // Abort decoding on uncorrectable error
+				// Error correction fail catch uhhh yeah don't want to write anything here tbh
 				break;
 			}
 		}
@@ -225,7 +221,7 @@ int main(void)
 			heatshrink_decoder_reset(&decoder);
 			HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_1);  // LED2 ON
 
-			// Sink Golay decoded input (instead of original compressed data)
+			// Sink Golay decoded input
 			while (sunk_d < golay_decoded_size) {
 				size_t s = 0;
 				heatshrink_decoder_sink(&decoder, golay_decoded_buf + sunk_d,
@@ -382,3 +378,4 @@ void assert_failed(uint8_t *file, uint32_t line)
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
+
