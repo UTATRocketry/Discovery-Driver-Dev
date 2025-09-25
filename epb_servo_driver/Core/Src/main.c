@@ -233,135 +233,135 @@ int main(void)
   MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
 
-		/* --------------------------- CAN --------------------------- */
+	/* --------------------------- CAN --------------------------- */
 
-		HAL_CAN_Start(&hcan1);
+	HAL_CAN_Start(&hcan1);
 
-		HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING); // activate notification of receiving data (we need to write the interrupt timer)
+	HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING); // activate notification of receiving data (we need to write the interrupt timer)
 
-		//before sending the data to the CAN, modify the header:
-		TxHeader.DLC = 1; // length of data to transmit in bytes
-		TxHeader.ExtId = 0; // zero for basic CAN protocol
-		TxHeader.IDE = CAN_ID_STD; // specifies the identifier (either CAN_ID_STD or CAN_ID_EXT)
-		TxHeader.RTR = CAN_RTR_DATA; // because we're sending data
-		TxHeader.StdId = 0x103; // we can give any identifier for this CAN peripheral
-		TxHeader.TransmitGlobalTime = DISABLE; // just keep it disabled
+	//before sending the data to the CAN, modify the header: <---------------------------------------------------- SHOULD I PUT THIS IN A FUNCTION?
+	TxHeader.DLC = 1; // length of data to transmit in bytes
+	TxHeader.ExtId = 0; // zero for basic CAN protocol
+	TxHeader.IDE = CAN_ID_STD; // specifies the identifier (either CAN_ID_STD or CAN_ID_EXT)
+	TxHeader.RTR = CAN_RTR_DATA; // because we're sending data
+	TxHeader.StdId = 0x103; // we can give any identifier for this CAN peripheral
+	TxHeader.TransmitGlobalTime = DISABLE; // just keep it disabled
 
-		// send the data to the CAN <-------------------------------------------- WRITTEN BUT NOT TESTED!!!!!!!!!!!!!!!!!!!
+	// send the data to the CAN TEST
 
-		TxData[0] = 0xf3; // sample data
+//	TxData[0] = 0xf3; // sample data
+//
+//	int status = 0;
+//	status = HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
+//	if (status != HAL_OK) {
+//		debug_transmit("CAN Communication failed\n");
+//	} else {
+//		debug_transmit("CAN Communication success\n");
+//		// data received to CAN_RX_FIFO0 --> callback will be called for the FIFO0_MSG_PENDING
+//	}
 
-		int status = 0;
-		status = HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
-		if (status != HAL_OK) {
-			debug_transmit("CAN Communication failed\n");
-		} else {
-			debug_transmit("CAN Communication success\n");
-			// data received to CAN_RX_FIFO0 --> callback will be called for the FIFO0_MSG_PENDING
-		}
+	/* --------------------------- SERVO --------------------------- */
 
-		/* --------------------------- SERVO --------------------------- */
+	// set the PWM frequency, initialise and configure the PWM signal generation for all timer 3 channels
+	uint32_t freq = 50;
+	uint8_t fail3 = init_servo_channels(&freq, &htim3, CH1, CH3, CH1, CH1);
+	if (fail3) {
+		debug_transmit("\nInitialisation failed\n");
+	} else {
+		debug_transmit("\nTimer 3 Channels initialised successfully\n");
+	}
+	uint8_t fail5 = init_servo_channels(&freq, &htim5, CH1, CH1, CH1, CH1);
+	if (fail5) {
+		debug_transmit("\nInitialisation failed\n");
+	} else {
+		debug_transmit("\nTimer 5 Channels initialised successfully\n");
+	}
 
-		// set the PWM frequency, initialise and configure the PWM signal generation for all timer 3 channels
-		uint32_t freq = 50;
-		uint8_t fail3 = init_servo_channels(&freq, &htim3, CH1, CH3, CH1, CH1);
-		if (fail3) {
-			debug_transmit("\nInitialisation failed\n");
-		} else {
-			debug_transmit("\nTimer 3 Channels initialised successfully\n");
-		}
-		uint8_t fail5 = init_servo_channels(&freq, &htim5, CH1, CH1, CH1, CH1);
-		if (fail5) {
-			debug_transmit("\nInitialisation failed\n");
-		} else {
-			debug_transmit("\nTimer 5 Channels initialised successfully\n");
-		}
+	/* --------------------------- ADS --------------------------- */
 
-		/* --------------------------- ADS --------------------------- */
+	//    pHeader.DLC=1; // 1 byte for now but i have no idea why (based on https://youtu.be/ymD3F0h-ilE?si=p-_ooJEZVid1YJxc&t=546)
+	//    pHeader.IDE=CAN_ID_STD;
+	//    pHeader.RTR=CAN_RTR_DATA;
+	//    pHeader.StdId=0x244;
+	//    int status = 0;
+	int32_t channelReading1 = 0;
+	int32_t channelReading2 = 0;
+	int32_t channelReading3 = 0;
+	int32_t channelReading4 = 0;
 
-//    pHeader.DLC=1; // 1 byte for now but i have no idea why (based on https://youtu.be/ymD3F0h-ilE?si=p-_ooJEZVid1YJxc&t=546)
-//    pHeader.IDE=CAN_ID_STD;
-//    pHeader.RTR=CAN_RTR_DATA;
-//    pHeader.StdId=0x244;
-//    int status = 0;
-		int32_t channelReading1 = 0;
-		int32_t channelReading2 = 0;
-		int32_t channelReading3 = 0;
-		int32_t channelReading4 = 0;
+	float voltsChannelReading1 = 0;
+	float voltsChannelReading2 = 0;
+	float voltsChannelReading3 = 0;
+	float voltsChannelReading4 = 0;
 
-		float voltsChannelReading1 = 0;
-		float voltsChannelReading2 = 0;
-		float voltsChannelReading3 = 0;
-		float voltsChannelReading4 = 0;
+	unsigned char tx_buff[100];
 
-		unsigned char tx_buff[100];
-
-		status = ADS131B04Q1_Init(&hspi3, GPIOA, GPIO_PIN_3);
-		if (status == 1) {
-			Error_Handler();
-		}
-		status = ADS131B04Q1_OSRConfig(7);
-		if (status == 1) {
-			Error_Handler();
-		}
-		status = ADS131B04Q1_Calibrate(0, 0.0002, 3, 3.0002, 1);
-		if (status == 1) {
-			Error_Handler();
-		}
+	status = ADS131B04Q1_Init(&hspi3, GPIOA, GPIO_PIN_3);
+	if (status == 1) {
+		Error_Handler();
+	}
+	status = ADS131B04Q1_OSRConfig(7);
+	if (status == 1) {
+		Error_Handler();
+	}
+	status = ADS131B04Q1_Calibrate(0, 0.0002, 3, 3.0002, 1);
+	if (status == 1) {
+		Error_Handler();
+	}
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-		while (1) {
-			/* --------------------------- SERVO --------------------------- */
+	while (1) {
+		/* --------------------------- SERVO --------------------------- */
 
-			test_angles(&htim3, CH1);
-			test_angles(&htim3, CH3);
-			test_angles(&htim5, CH1);
+		test_angles(&htim3, CH1);
+		test_angles(&htim3, CH3);
+		test_angles(&htim5, CH1);
 
-			/* --------------------------- ADS --------------------------- */
+		/* --------------------------- ADS --------------------------- */
 
-			//returns signed 2s complement number as a fraction of range
-			status = ADS131B04Q1_ReadChannels(&channelReading1,
-					&channelReading2, &channelReading3, &channelReading4);
-			if (status == 1) {
-				Error_Handler();
-			}
+		//returns signed 2s complement number as a fraction of range
+		status = ADS131B04Q1_ReadChannels(&channelReading1,
+				&channelReading2, &channelReading3, &channelReading4);
+		if (status == 1) {
+			Error_Handler();
+		}
 
-			//convert signed values to voltage values
-			voltsChannelReading1 = ADS131B04Q1_RawToVoltage(channelReading1, 1);
-			voltsChannelReading2 = ADS131B04Q1_RawToVoltage(channelReading2, 2);
-			voltsChannelReading3 = ADS131B04Q1_RawToVoltage(channelReading3, 3);
-			voltsChannelReading4 = ADS131B04Q1_RawToVoltage(channelReading4, 4);
+		//convert signed values to voltage values
+		voltsChannelReading1 = ADS131B04Q1_RawToVoltage(channelReading1, 1);
+		voltsChannelReading2 = ADS131B04Q1_RawToVoltage(channelReading2, 2);
+		voltsChannelReading3 = ADS131B04Q1_RawToVoltage(channelReading3, 3);
+		voltsChannelReading4 = ADS131B04Q1_RawToVoltage(channelReading4, 4);
 
-			/*
-			 *to use the float type:
-			 *Project > Properties > C/C++ Build > Settings > Tool Settings > MCU/MPU Settings > Use float with printf from newlib-nano (-u_printf_float)"
-			 */
+		/*
+		 *to use the float type:
+		 *Project > Properties > C/C++ Build > Settings > Tool Settings > MCU/MPU Settings > Use float with printf from newlib-nano (-u_printf_float)"
+		 */
 
-			sprintf((char*) tx_buff, "CH1: %f V\n\r", voltsChannelReading1);
-			HAL_UART_Transmit(&hlpuart1, tx_buff, strlen((char*) tx_buff),
-					1000);
+		sprintf((char*) tx_buff, "CH1: %f V\n\r", voltsChannelReading1);
+		HAL_UART_Transmit(&hlpuart1, tx_buff, strlen((char*) tx_buff),
+				1000);
 
-			sprintf((char*) tx_buff, "CH2: %f V\n\r", voltsChannelReading2);
-			HAL_UART_Transmit(&hlpuart1, tx_buff, strlen((char*) tx_buff),
-					1000);
+		sprintf((char*) tx_buff, "CH2: %f V\n\r", voltsChannelReading2);
+		HAL_UART_Transmit(&hlpuart1, tx_buff, strlen((char*) tx_buff),
+				1000);
 
-			sprintf((char*) tx_buff, "CH3: %f V\n\r", voltsChannelReading3);
-			HAL_UART_Transmit(&hlpuart1, tx_buff, strlen((char*) tx_buff),
-					1000);
+		sprintf((char*) tx_buff, "CH3: %f V\n\r", voltsChannelReading3);
+		HAL_UART_Transmit(&hlpuart1, tx_buff, strlen((char*) tx_buff),
+				1000);
 
-			sprintf((char*) tx_buff, "CH4: %f V\n\r", voltsChannelReading4);
-			HAL_UART_Transmit(&hlpuart1, tx_buff, strlen((char*) tx_buff),
-					1000);
+		sprintf((char*) tx_buff, "CH4: %f V\n\r", voltsChannelReading4);
+		HAL_UART_Transmit(&hlpuart1, tx_buff, strlen((char*) tx_buff),
+				1000);
 
-			// transmit voltage readings and current voltage stuffs through CAN?
+		// transmit voltage readings and current voltage stuffs through CAN?
 
-			CAN_transmit_voltage(voltsChannelReading1);
-			CAN_transmit_voltage(voltsChannelReading2);
-			CAN_transmit_voltage(voltsChannelReading3);
-			CAN_transmit_voltage(voltsChannelReading4);
+		CAN_transmit_voltage(voltsChannelReading1);
+		CAN_transmit_voltage(voltsChannelReading2);
+		CAN_transmit_voltage(voltsChannelReading3);
+		CAN_transmit_voltage(voltsChannelReading4);
 
     /* USER CODE END WHILE */
 
