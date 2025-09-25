@@ -125,6 +125,8 @@ int main(void)
 
 	uint8_t in_buf[16] = "hello";
 	uint8_t comp_buf[16];
+	uint8_t golay_encoded_buf[48];  // Golay encoded buffer (3 bytes per input byte)
+	uint8_t golay_decoded_buf[16];  // Golay decoded buffer
 	uint8_t out_buf[32];  // Decompressed output
 
 	size_t in_size = strlen((char*) in_buf);
@@ -174,41 +176,87 @@ int main(void)
 				break;
 		}
 
-
-
-		// DECODE
-
-		heatshrink_decoder_reset(&decoder);
-		HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_1);  // LED2 ON
-
-		// Sink compressed input
-		while (sunk_d < total_polled) {
-			size_t s = 0;
-			heatshrink_decoder_sink(&decoder, comp_buf + sunk_d,
-					total_polled - sunk_d, &s);
-			sunk_d += s;
-
-			heatshrink_decoder_poll(&decoder, out_buf + total_out,
-					sizeof(out_buf) - total_out, &polled_d);
-			total_out += polled_d;
+		// GOLAY ENCODING - fit one byte per 12-bit chunk
+		// Each compressed byte is encoded into a 24-bit Golay codeword (3 bytes)
+		size_t golay_encoded_size = 0;
+		for (size_t i = 0; i < total_polled; i++) {
+			// Take each byte from comp_buf and treat it as 8-bit data
+			// Pad to 12 bits and encode with Golay (8 bits fits within 12-bit data field)
+			uint32_t data_12bit = (uint32_t)comp_buf[i];  // 8 bits expanded to 12 bits
+			uint32_t codeword = golay24_data2code(data_12bit);
+			
+			// Store the 24-bit codeword as 3 bytes (big-endian)
+			golay_encoded_buf[golay_encoded_size++] = (codeword >> 16) & 0xFF;
+			golay_encoded_buf[golay_encoded_size++] = (codeword >> 8) & 0xFF;
+			golay_encoded_buf[golay_encoded_size++] = codeword & 0xFF;
 		}
 
-		heatshrink_decoder_finish(&decoder);
-		// Final flush
-		while (1) {
-			size_t p = 0;
-			HSD_poll_res dres = heatshrink_decoder_poll(&decoder,
-					out_buf + total_out, sizeof(out_buf) - total_out, &p);
-			total_out += p;
-			if (dres == HSDR_POLL_EMPTY)
+		// GOLAY DECODING
+		// Decode each 24-bit codeword back to 8-bit data
+		size_t golay_decoded_size = 0;
+		int golay_errors = 0;
+		for (size_t i = 0; i < golay_encoded_size; i += 3) {
+			// Reconstruct the 24-bit codeword from 3 bytes (big-endian)
+			uint32_t codeword = ((uint32_t)golay_encoded_buf[i] << 16) |
+								((uint32_t)golay_encoded_buf[i+1] << 8) |
+								((uint32_t)golay_encoded_buf[i+2]);
+			
+			uint32_t decoded_data;
+			int result = golay24_code2data(codeword, &decoded_data);
+			
+			if (result >= 0) {  // Success or corrected errors
+				golay_decoded_buf[golay_decoded_size++] = (uint8_t)(decoded_data & 0xFF);
+				if (result > 0) {
+					golay_errors += result;  // Count corrected errors
+				}
+			} else {
+				// Error correction failed - indicate error with LED blink
+				HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);  // Brief error indication
+				HAL_Delay(100);
+				HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);
+				golay_decoded_size = 0;  // Abort decoding on uncorrectable error
 				break;
+			}
 		}
 
-		blink_buffer(out_buf, total_out, GPIOB, GPIO_PIN_14); // Blink output on LED3
+		// HEATSHRINK DECODE
+		// Only proceed if Golay decoding was successful
+		if (golay_decoded_size > 0) {
+			heatshrink_decoder_reset(&decoder);
+			HAL_GPIO_TogglePin(GPIOE, GPIO_PIN_1);  // LED2 ON
+
+			// Sink Golay decoded input (instead of original compressed data)
+			while (sunk_d < golay_decoded_size) {
+				size_t s = 0;
+				heatshrink_decoder_sink(&decoder, golay_decoded_buf + sunk_d,
+						golay_decoded_size - sunk_d, &s);
+				sunk_d += s;
+
+				heatshrink_decoder_poll(&decoder, out_buf + total_out,
+						sizeof(out_buf) - total_out, &polled_d);
+				total_out += polled_d;
+			}
+
+			heatshrink_decoder_finish(&decoder);
+			// Final flush
+			while (1) {
+				size_t p = 0;
+				HSD_poll_res dres = heatshrink_decoder_poll(&decoder,
+						out_buf + total_out, sizeof(out_buf) - total_out, &p);
+				total_out += p;
+				if (dres == HSDR_POLL_EMPTY)
+					break;
+			}
+
+			blink_buffer(out_buf, total_out, GPIOB, GPIO_PIN_14); // Blink output on LED3
+		}
+
 		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_7);  // LED2 OFF
 		sunk = 0, polled = 0, total_polled = 0;
 		sunk_d = 0, polled_d = 0, total_out = 0;
 		memset(comp_buf, 0, sizeof(comp_buf));
+		memset(golay_encoded_buf, 0, sizeof(golay_encoded_buf));
+		memset(golay_decoded_buf, 0, sizeof(golay_decoded_buf));
 		memset(out_buf, 0, sizeof(out_buf));
 		HAL_Delay(2000);
 	}
