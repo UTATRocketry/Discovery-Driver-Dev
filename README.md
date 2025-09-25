@@ -1,2 +1,2 @@
-# Discovery-Driver-Dev
-Driver development repo for Discovery avionics system.
+# Discovery-Dev
+Development repo for Discovery avionics system.
