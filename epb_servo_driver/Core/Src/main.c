@@ -51,7 +51,7 @@ CAN_HandleTypeDef hcan1;
 UART_HandleTypeDef hlpuart1;
 UART_HandleTypeDef huart5;
 
-SPI_HandleTypeDef hspi3;
+SPI_HandleTypeDef hspi1;
 
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim5;
@@ -71,9 +71,9 @@ static void MX_TIM16_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_CAN1_Init(void);
 static void MX_ADC1_Init(void);
-static void MX_SPI3_Init(void);
 static void MX_UART5_Init(void);
 static void MX_TIM5_Init(void);
+static void MX_SPI1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -228,9 +228,9 @@ int main(void)
   MX_TIM3_Init();
   MX_CAN1_Init();
   MX_ADC1_Init();
-  MX_SPI3_Init();
   MX_UART5_Init();
   MX_TIM5_Init();
+  MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
 
 	/* --------------------------- CAN --------------------------- */
@@ -296,16 +296,19 @@ int main(void)
 
 	unsigned char tx_buff[100];
 
-	status = ADS131B04Q1_Init(&hspi3, GPIOA, GPIO_PIN_3);
+	int status = ADS131B04Q1_Init(&hspi1, GPIOA, GPIO_PIN_3);
 	if (status == 1) {
+		debug_transmit("\nADC Initialisation Failed\n");
 		Error_Handler();
 	}
 	status = ADS131B04Q1_OSRConfig(7);
 	if (status == 1) {
+		debug_transmit("\nADC OSR Configuration Failed\n");
 		Error_Handler();
 	}
 	status = ADS131B04Q1_Calibrate(0, 0.0002, 3, 3.0002, 1);
 	if (status == 1) {
+		debug_transmit("\nADC Calibration Failed\n");
 		Error_Handler();
 	}
 
@@ -326,6 +329,7 @@ int main(void)
 		status = ADS131B04Q1_ReadChannels(&channelReading1,
 				&channelReading2, &channelReading3, &channelReading4);
 		if (status == 1) {
+			debug_transmit("\nADC Channel Readings Failed\n");
 			Error_Handler();
 		}
 
@@ -434,6 +438,7 @@ static void MX_ADC1_Init(void)
   ADC_ChannelConfTypeDef sConfig = {0};
 
   /* USER CODE BEGIN ADC1_Init 1 */
+  debug_transmit("\nADC1 Initialisation START\n");
 
   /* USER CODE END ADC1_Init 1 */
 
@@ -490,6 +495,7 @@ static void MX_CAN1_Init(void)
   /* USER CODE END CAN1_Init 0 */
 
   /* USER CODE BEGIN CAN1_Init 1 */
+  debug_transmit("\nCAN1 Initialisation START\n");
 
   /* USER CODE END CAN1_Init 1 */
   hcan1.Instance = CAN1;
@@ -541,6 +547,8 @@ static void MX_LPUART1_UART_Init(void)
   /* USER CODE END LPUART1_Init 0 */
 
   /* USER CODE BEGIN LPUART1_Init 1 */
+	debug_transmit("\nUART1 Initialisation START\n");
+
 
   /* USER CODE END LPUART1_Init 1 */
   hlpuart1.Instance = LPUART1;
@@ -589,6 +597,8 @@ static void MX_UART5_Init(void)
   /* USER CODE END UART5_Init 0 */
 
   /* USER CODE BEGIN UART5_Init 1 */
+	debug_transmit("\nUART5 Initialisation START\n");
+
 
   /* USER CODE END UART5_Init 1 */
   huart5.Instance = UART5;
@@ -625,42 +635,43 @@ static void MX_UART5_Init(void)
 }
 
 /**
-  * @brief SPI3 Initialization Function
+  * @brief SPI1 Initialization Function
   * @param None
   * @retval None
   */
-static void MX_SPI3_Init(void)
+static void MX_SPI1_Init(void)
 {
 
-  /* USER CODE BEGIN SPI3_Init 0 */
+  /* USER CODE BEGIN SPI1_Init 0 */
 
-  /* USER CODE END SPI3_Init 0 */
+  /* USER CODE END SPI1_Init 0 */
 
-  /* USER CODE BEGIN SPI3_Init 1 */
+  /* USER CODE BEGIN SPI1_Init 1 */
 
-  /* USER CODE END SPI3_Init 1 */
-  /* SPI3 parameter configuration*/
-  hspi3.Instance = SPI3;
-  hspi3.Init.Mode = SPI_MODE_MASTER;
-  hspi3.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi3.Init.DataSize = SPI_DATASIZE_4BIT;
-  hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi3.Init.NSS = SPI_NSS_SOFT;
-  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
-  hspi3.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  hspi3.Init.TIMode = SPI_TIMODE_DISABLE;
-  hspi3.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  hspi3.Init.CRCPolynomial = 7;
-  hspi3.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
-  hspi3.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
-  if (HAL_SPI_Init(&hspi3) != HAL_OK)
+  /* USER CODE END SPI1_Init 1 */
+  /* SPI1 parameter configuration*/
+  hspi1.Instance = SPI1;
+  hspi1.Init.Mode = SPI_MODE_MASTER;
+  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi1.Init.DataSize = SPI_DATASIZE_4BIT;
+  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi1.Init.NSS = SPI_NSS_SOFT;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi1.Init.CRCPolynomial = 7;
+  hspi1.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
+  hspi1.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+  if (HAL_SPI_Init(&hspi1) != HAL_OK)
   {
     Error_Handler();
   }
-  /* USER CODE BEGIN SPI3_Init 2 */
+  /* USER CODE BEGIN SPI1_Init 2 */
+  debug_transmit("\nSPI1 Initialisation START\n");
 
-  /* USER CODE END SPI3_Init 2 */
+  /* USER CODE END SPI1_Init 2 */
 
 }
 
@@ -681,6 +692,8 @@ static void MX_TIM3_Init(void)
   TIM_OC_InitTypeDef sConfigOC = {0};
 
   /* USER CODE BEGIN TIM3_Init 1 */
+  debug_transmit("\nHAL Timer 3 Initialisation START\n");
+
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
@@ -744,6 +757,7 @@ static void MX_TIM5_Init(void)
   TIM_OC_InitTypeDef sConfigOC = {0};
 
   /* USER CODE BEGIN TIM5_Init 1 */
+  debug_transmit("\nHAL Timer 5 Initialisation START\n");
 
   /* USER CODE END TIM5_Init 1 */
   htim5.Instance = TIM5;
@@ -754,7 +768,7 @@ static void MX_TIM5_Init(void)
   htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim5) != HAL_OK)
   {
-    Error_Handler();
+	  Error_Handler();
   }
   sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
   if (HAL_TIM_ConfigClockSource(&htim5, &sClockSourceConfig) != HAL_OK)
@@ -763,7 +777,7 @@ static void MX_TIM5_Init(void)
   }
   if (HAL_TIM_PWM_Init(&htim5) != HAL_OK)
   {
-    Error_Handler();
+	  Error_Handler();
   }
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
@@ -834,10 +848,10 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOG_CLK_ENABLE();
   HAL_PWREx_EnableVddIO2();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
@@ -855,11 +869,17 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PF7 PF13 PF14 CS_Pin */
-  GPIO_InitStruct.Pin = GPIO_PIN_7|GPIO_PIN_13|GPIO_PIN_14|CS_Pin;
+  /*Configure GPIO pins : PF7 PF13 PF14 */
+  GPIO_InitStruct.Pin = GPIO_PIN_7|GPIO_PIN_13|GPIO_PIN_14;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PA3 */
+  GPIO_InitStruct.Pin = GPIO_PIN_3;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : USB_OverCurrent_Pin */
   GPIO_InitStruct.Pin = USB_OverCurrent_Pin;
@@ -880,6 +900,14 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PC10 */
+  GPIO_InitStruct.Pin = GPIO_PIN_10;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.Alternate = GPIO_AF6_SPI3;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pin : ADC_DRDY_Pin */
   GPIO_InitStruct.Pin = ADC_DRDY_Pin;

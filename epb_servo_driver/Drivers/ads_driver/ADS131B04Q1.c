@@ -26,6 +26,7 @@ int ADS131B04Q1_Init(SPI_HandleTypeDef *hspi, GPIO_TypeDef *GPIOpinLetter, uint1
     // check if ADC is connected
     status = ADS131B04Q1_CheckConnection();
     if (status == HAL_ERROR) {
+    	debug_transmit("\nADC CheckConnection Failed\n");
         return status; // if ADC is not connected, return 1
     }
 
@@ -37,7 +38,10 @@ int ADS131B04Q1_Init(SPI_HandleTypeDef *hspi, GPIO_TypeDef *GPIOpinLetter, uint1
     // 0000000
     uint8_t writeCommand[3] = {0b01100001, 0b10000000, 0};
     status = HAL_SPI_Transmit(ADS131_hspi, writeCommand, 3, HAL_MAX_DELAY);
-    if (status == HAL_ERROR) return status;
+    if (status == HAL_ERROR) {
+    	debug_transmit("\nADC SPI Write Command Failed\n");
+    	return status;
+    }
 
 
     // Configure CLOCK: 0000 = reserved, 1111 = all channels enabled, 0 =
@@ -45,7 +49,10 @@ int ADS131B04Q1_Init(SPI_HandleTypeDef *hspi, GPIO_TypeDef *GPIOpinLetter, uint1
     // resolution
     uint8_t writeCLOCK[3] = {0b00001111, 0b00011110, 0};
     status = HAL_SPI_Transmit(ADS131_hspi, writeCLOCK, 3, HAL_MAX_DELAY);
-    if (status == HAL_ERROR) return status;
+    if (status == HAL_ERROR) {
+    	debug_transmit("\nADC SPI Clock Configuration Failed\n");
+    	return status;
+    }
 
 
     // drive CS line high
