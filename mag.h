@@ -7,7 +7,7 @@
  * the necessary structures, function prototypes, and constants
  * required for the magnetometer driver.
  * 
- * @authors Amelia Ellis
+ * @authors Amelia Ellis, Eric Chiang
  * @date 2025-04-11
  * @version 0.1
  * @bug No known bugs.
@@ -19,102 +19,104 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include "stm32h7xx_hal.h"
-#include "sensors_defs.h"
-
-
 
 // Register Addresses
-#define LIS3MDL_WHO_AM_I_ADDR      0x0F
-#define LIS3MDL_CTRL_REG1_ADDR     0x20
-#define LIS3MDL_CTRL_REG2_ADDR     0x21
-#define LIS3MDL_CTRL_REG3_ADDR     0x22
-#define LIS3MDL_CTRL_REG4_ADDR     0x23
-#define LIS3MDL_OUT_X_L_ADDR       0x28
-#define LIS3MDL_OUT_X_H_ADDR       0x29
-#define LIS3MDL_OUT_Y_L_ADDR       0x2A
-#define LIS3MDL_OUT_Y_H_ADDR       0x2B
-#define LIS3MDL_OUT_Z_L_ADDR       0x2C
-#define LIS3MDL_OUT_Z_H_ADDR       0x2D
+#define LIS2MDL_WHO_AM_I_ADDR 0x4F
+#define LIS2MDL_CFG_REG_A_ADDR 0x60
+#define LIS2MDL_CFG_REG_B_ADDR 0x61
+#define LIS2MDL_CFG_REG_C_ADDR 0x62
+#define LIS2MDL_INT_CTRL_ADDR 0x63
+#define LIS2MDL_INT_SRC_ADDR 0x64
+#define LIS2MDL_THIS_L_ADDR 0x65
+#define LIS2MDL_THIS_H_ADDR 0x66
+#define LIS2MDL_STATUS_REG_ADDR 0x67
+#define LIS2MDL_OUT_X_L_ADDR 0x68
+#define LIS2MDL_OUT_X_H_ADDR 0x69
+#define LIS2MDL_OUT_Y_L_ADDR 0x6A
+#define LIS2MDL_OUT_Y_H_ADDR 0x6B
+#define LIS2MDL_OUT_Z_L_ADDR 0x6C
+#define LIS2MDL_OUT_Z_H_ADDR 0x6D
+#define LIS2MDL_OUT_TEMP_L_ADDR 0x6E 
+#define LIS2MDL_OUT_TEMP_H_ADDR 0X6F
 
-// WHO_AM_I Expected Value
-#define LIS3MDL_WHO_AM_I_VALUE 0x3D
+// WHO_AM_I expected value
+#define LIS2MDL_WHO_AM_I_VALUE 0x40
 
+// SPI Chip Select Pin Configurations
+#define LIS2MDL_CS_PORT GPIOG
+#define LIS2MDL_CS_PIN GPIO_PIN_12
 
+// Constants to convert to gauss
+#define MAG_BIT_TO_MILLIGAUSS 1.5 // 1.5 milligauss per bit
+#define MAG_BIT_TO_CELSIUS 0.125 // 0.125 C per bit
 
-// Pin Definitions
-#define LIS3MDL_CS_PORT GPIOG
-#define LIS3MDL_CS_PIN GPIO_PIN_12
-//extern GPIO_TypeDef LIS3MDL_CS_PORT;
-//extern uint16_t LIS3MDL_CS_PIN;
-
-
-extern uint8_t LIS3MDL_SETTINGS[8];
+// TODO: find out where these setting are defined
+/*
+0 - Gauss Range
+1 - ODR
+2 - Performance Mode
+3 - Continous/Single
+Not sure why there is 8 settings but whatevs
+*/
+extern SPI_HandleTypeDef hspi1;
 
 // SPI Communication Macros
-#define LIS3MDL_CS_LOW()   HAL_GPIO_WritePin(LIS3MDL_CS_PORT, LIS3MDL_CS_PIN, GPIO_PIN_RESET)
-#define LIS3MDL_CS_HIGH()  HAL_GPIO_WritePin(LIS3MDL_CS_PORT, LIS3MDL_CS_PIN, GPIO_PIN_SET)
+#define LIS2MDL_CS_LOW()   HAL_GPIO_WritePin(LIS2MDL_CS_PORT, LIS2MDL_CS_PIN, GPIO_PIN_RESET)
+#define LIS2MDL_CS_HIGH()  HAL_GPIO_WritePin(LIS2MDL_CS_PORT, LIS2MDL_CS_PIN, GPIO_PIN_SET)
 
-/** The magnetometer ranges */
+// Magnetometer Struct
+
+typedef struct {
+  float x;
+  float y;
+  float z;
+  float temp;
+  lis2mdl_datamode_t data_mode;
+  lis2mdl_dataRate_t odr;
+  lis2mdl_performancemode_t performance_mode;
+} LIS2MDL_MAG;
+
+/** The magnetometer data rate for single mode measurement*/
 typedef enum {
-    LIS3MDL_RANGE_4_GAUSS = 0b00,  ///< +/- 4g (default value)
-    LIS3MDL_RANGE_8_GAUSS = 0b01,  ///< +/- 8g
-    LIS3MDL_RANGE_12_GAUSS = 0b10, ///< +/- 12g
-    LIS3MDL_RANGE_16_GAUSS = 0b11, ///< +/- 16g
-  } lis3mdl_range_t;
-  
-  /** The magnetometer data rate, includes FAST_ODR bit */
-  typedef enum {
-    LIS3MDL_DATARATE_0_625_HZ = 0b0000, ///<  0.625 Hz
-    LIS3MDL_DATARATE_1_25_HZ = 0b0010,  ///<  1.25 Hz
-    LIS3MDL_DATARATE_2_5_HZ = 0b0100,   ///<  2.5 Hz
-    LIS3MDL_DATARATE_5_HZ = 0b0110,     ///<  5 Hz
-    LIS3MDL_DATARATE_10_HZ = 0b1000,    ///<  10 Hz
-    LIS3MDL_DATARATE_20_HZ = 0b1010,    ///<  20 Hz
-    LIS3MDL_DATARATE_40_HZ = 0b1100,    ///<  40 Hz
-    LIS3MDL_DATARATE_80_HZ = 0b1110,    ///<  80 Hz
-    LIS3MDL_DATARATE_155_HZ = 0b0001,   ///<  155 Hz (FAST_ODR + UHP)
-    LIS3MDL_DATARATE_300_HZ = 0b0011,   ///<  300 Hz (FAST_ODR + HP)
-    LIS3MDL_DATARATE_560_HZ = 0b0101,   ///<  560 Hz (FAST_ODR + MP)
-    LIS3MDL_DATARATE_1000_HZ = 0b0111,  ///<  1000 Hz (FAST_ODR + LP)
-  } lis3mdl_dataRate_t;
-  
-  /** The magnetometer performance mode */
-  typedef enum {
-	LIS3MDL_PERFORMANCEMODE_LOWPOWER = 0b00,  ///< Low power mode
-	LIS3MDL_PERFORMANCEMODE_MEDIUM = 0b01,    ///< Medium performance mode
-	LIS3MDL_PERFORMANCEMODE_HIGH = 0b10,      ///< High performance mode
-	LIS3MDL_PERFORMANCEMODE_ULTRAHIGH = 0b11, ///< Ultra-high performance mode
-  } lis3mdl_performancemode_t;
-  
-  /** The magnetometer operation mode */
-  typedef enum {
-	LIS3MDL_OPERATIONMODE_CONTINUOUS = 0b00, ///< Continuous conversion mode
-	LIS3MDL_OPERATIONMODE_SINGLE = 0b01,     ///< Single-shot conversion
-	LIS3MDL_OPERATIONMODE_POWERDOWN = 0b11,  ///< Powered-down
-  } lis3mdl_operationmode_t;
+    LIS2MDL_DATARATE_10_HZ = 0b00, ///<  10 Hz
+    LIS2MDL_DATARATE_20_HZ = 0b01,  ///<  20 Hz
+    LIS2MDL_DATARATE_50_HZ = 0b10,   ///<  50 Hz
+    LIS2MDL_DATARATE_100_HZ = 0b11,     ///<  100 Hz
+} lis2mdl_dataRate_t;
 
+/** The magnetometer performance mode */
+typedef enum {
+    LIS2MDL_PERFORMANCEMODE_LOWPOWER = 0b0,  ///< Low Power Mode
+    LIS2MDL_PERFORMANCEMODE_HIGH_RES = 0b1,    ///< High Resolution Mode
+} lis2mdl_performancemode_t;
 
+  /** The magnetometer data mode */
+  typedef enum {
+	LIS2MDL_OPERATIONMODE_CONTINUOUS = 0b00, ///< Continuous conversion mode
+	LIS2MDL_OPERATIONMODE_SINGLE = 0b01,     ///< Single-shot conversion
+	LIS2MDL_OPERATIONMODE_POWERDOWN = 0b11,  ///< Idle mode
+  } lis2mdl_datamode_t;
 
 /**
- * @brief Write a single byte to a LIS3MDL register.
+ * @brief Write a single byte to a LIS2MDL register.
  * @param reg: Register address.
  * @param value: Value to write.
  */
-void LIS3MDL_WriteRegister(uint8_t reg, uint8_t value);
+void LIS2MDL_WriteRegister(uint8_t addr, uint8_t value);
 /**
- * @brief Read a single byte from a LIS3MDL register.
+ * @brief Read a single byte from a LIS2MDL register.
  * @param reg: Register address.
  * @return The value read.
  */
-uint8_t LIS3MDL_ReadRegister(uint8_t reg);
+uint8_t LIS2MDL_ReadRegister(uint8_t addr);
 
 /**
- * @brief Read multiple bytes starting from a LIS3MDL register.
+ * @brief Read multiple bytes starting from a LIS2MDL register.
  * @param reg: Starting register address.
  * @param buffer: Buffer to store the data.
  * @param length: Number of bytes to read.
  */
-void LIS3MDL_ReadRegisters(uint8_t reg, uint8_t *buffer, uint8_t len);
+void LIS2MDL_ReadRegisters(uint8_t addr, uint8_t *buffer, uint8_t len);
 
 /**
  * @brief Initializes the magnetometer.
@@ -125,7 +127,7 @@ void LIS3MDL_ReadRegisters(uint8_t reg, uint8_t *buffer, uint8_t len);
  * 
  * @return uint8_t Status of the initialization (0 for success, 1 for failure).
  */
-uint8_t Mag_Init();
+uint8_t LIS2MDL_Init(LIS2MDL_MAG* mag);
 
 /**
  * @brief This function configures the mode, data rate, and range of the magnetometer.
@@ -135,19 +137,8 @@ uint8_t Mag_Init();
  * @param range The range to set (in Gauss).
  * @return uint8_t Status of the configuration (0 for success, 1 for failure).
  */
-uint8_t Mag_SetConfig(uint8_t *settings);
 
-/**
- * @brief Gets the current configuration of the magnetometer.
- * 
- * This function retrieves the current mode, data rate, and range of the magnetometer.
- * 
- * @param mode Pointer to store the current mode.
- * @param dataRate Pointer to store the current data rate.
- * @param range Pointer to store the current range.
- * @return uint8_t Status of the configuration retrieval (0 for success, 1 for failure).
- */
-uint8_t Mag_GetConfig();
+uint8_t LIS2MDL_GetConfig(LIS2MDL_MAG* mag);
 
 /**
  * @brief Reads data from the magnetometer.
@@ -157,7 +148,16 @@ uint8_t Mag_GetConfig();
  * @param pData Pointer to store the magnetic field data (x, y, z components).
  * @return uint8_t Status of the read operation (0 for success, 1 for failure).
  */
-uint8_t Mag_Read(vector_t *pData);
+uint8_t LIS2MDL_Read_Mag(LIS2MDL_MAG* mag);
+
+/**
+ * @brief Reboots the magnetometer. 
+ * 
+ * Magnetometer memory is reset. The user config registers are retained.
+ *
+ * @return None
+ */
+void LIS2MDL_Reboot_Mag(LIS2MDL_MAG* mag);
 
 uint8_t Mag_Test();
 
