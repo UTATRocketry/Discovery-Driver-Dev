@@ -66,29 +66,8 @@ static void MX_UART5_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-unsigned char ITbuffer[1000] = {0};
-unsigned char GPSData[10000] = {0};
-
-
-//1 byte IT callback
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-	// do something with the data
-
-	strcat(GPSData, ITbuffer);
-	HAL_UARTEx_ReceiveToIdle_IT(&huart5, ITbuffer, 1000);
-}
-
-
-//IDLE callback
-void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
-{
-  uint16_t indx = Size;
-
-  strcat(GPSData, ITbuffer);
-  memset(GPSData, 0, 10000);
-  HAL_UART_Receive_IT(&huart5, ITbuffer, 5);
-}
+// GPS data buffer for main loop (NEOM9N.c handles interrupt buffers)
+unsigned char GPSData[2048] = {0};
 
 /* USER CODE END 0 */
 
@@ -133,8 +112,11 @@ int main(void)
   MX_UART5_Init();
   /* USER CODE BEGIN 2 */
   status = NEOM9N_init(&huart5);
-
-  //HAL_UART_Receive_IT(&huart5, ITbuffer, 1);
+  
+  if (status != HAL_OK) {
+	  sprintf((char*)tx_buff, "GPS Init Failed!\n\r");
+	  HAL_UART_Transmit(&hlpuart1, tx_buff, strlen((char*)tx_buff), 2000);
+  }
 
   /* USER CODE END 2 */
 

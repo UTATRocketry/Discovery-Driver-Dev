@@ -25,111 +25,204 @@
      }
  }
  
- UART_HandleTypeDef* uartAddress;
- 
- extern UART_HandleTypeDef hlpuart1;
- //extern UART_HandleTypeDef huart5;
- 
- /* - DEBUG BUFFER - */
- unsigned char rx_buffDEBUG[1000]; //read buffer from NEO-M9N
- unsigned char tx_buffDEBUG[1000]; //write buffer to serial output
- 
- 
- int NEOM9N_init(UART_HandleTypeDef* uartAddressPin){
-     uartAddress = uartAddressPin;
-     int status = 0;
- 
- 
-     status = NEOM9N_CheckConnection();
-     if (status == HAL_ERROR) {
-         return status; // if GPS does not respond, return 1
-     }
-     //todo: continue to configure settings for GPS once connected/wait for cold start procedure to finish
- 
-     //0x209100bb
-     //0xb5620608060064000100010000
-     //0x30210001
- 
-     uint8_t ubx_msg[] = {
-             0xB5, 0x62,       // Sync chars
-             0x06, 0x08,       // Class, ID (CFG-RATE)
-             0x06, 0x00,       // Length (6 bytes)
-             0x64, 0x00,       // measRate = 100 ms (0x0064)
-             0x01, 0x00,       // navRate = 1
-             0x01, 0x00,       // timeRef = 1 (GPS time)
-             0x00, 0x00        // Placeholder for checksum
-         };
- 
-         // Calculate checksum over bytes 2..11 (class to last payload byte)
-         uint8_t ck_a, ck_b;
-         calc_checksum(&ubx_msg[2], 10, &ck_a, &ck_b);
-         ubx_msg[12] = ck_a;
-         ubx_msg[13] = ck_b;
- 
-         HAL_UART_Transmit(&hlpuart1, ubx_msg, strlen((uint8_t*)ubx_msg), 2000);
+UART_HandleTypeDef* uartAddress;
+
+extern UART_HandleTypeDef hlpuart1;
+
+/* - DOUBLE BUFFER SYSTEM FOR INTERRUPT-BASED RECEPTION - */
+#define GPS_BUFFER_SIZE 2048
+
+static uint8_t buffer1[GPS_BUFFER_SIZE];
+static uint8_t buffer2[GPS_BUFFER_SIZE];
+static uint8_t* volatile write_buffer = buffer1;  // Interrupt writes here
+static uint8_t* volatile read_buffer = buffer2;   // Main loop reads here
+static volatile uint16_t write_size = 0;
+static volatile uint8_t data_ready = 0;
+
+
  
  
-         uint8_t ubx_cfg_msg[] = {
-             0xB5, 0x62,       // UBX sync chars
-             0x06, 0x01,       // Class = CFG, ID = MSG
-             0x08, 0x00,       // Length = 8
-             0xF0, 0x00,       // Payload: NMEA GGA (class, id)
-             0x00,             // Rate for I2C (set to 0 if not used)
-             0x02,             // Rate for UART1 (1 = enabled)
-             0x00,             // Rate for UART2 (not present on M9N)
-             0x00,             // Rate for USB
-             0x00,             // Rate for SPI
-             0x00,             // Reserved
-             0x00, 0x00        // Checksum (to be filled in)
-         };
-         uint8_t ck_c, ck_d;
-                 calc_checksum(&ubx_cfg_msg[2], 10, &ck_c, &ck_d);
-                 ubx_msg[12] = ck_c;
-                 ubx_msg[13] = ck_d;
+/* AI-Modified: Cursor AI (Claude Sonnet 4.5) - October 2025
+ * Fixed UART handle bugs, checksum calculations, and added interrupt initialization
+ * Bug fixes and interrupt setup by AI */
+int NEOM9N_init(UART_HandleTypeDef* uartAddressPin){
+    if (uartAddressPin == NULL) {
+        return HAL_ERROR;
+    }
+    
+    uartAddress = uartAddressPin;
+    int status = 0;
+    
+    // Initialize buffers
+    memset(buffer1, 0, GPS_BUFFER_SIZE);
+    memset(buffer2, 0, GPS_BUFFER_SIZE);
+    data_ready = 0;
+    write_size = 0;
+
+    // Configure GPS: Set update rate to 100ms (10Hz)
+    uint8_t ubx_cfg_rate[] = {
+        0xB5, 0x62,       // Sync chars
+        0x06, 0x08,       // Class, ID (CFG-RATE)
+        0x06, 0x00,       // Length (6 bytes)
+        0x64, 0x00,       // measRate = 100 ms (0x0064)
+        0x01, 0x00,       // navRate = 1
+        0x01, 0x00,       // timeRef = 1 (GPS time)
+        0x00, 0x00        // Placeholder for checksum
+    };
+
+    // Calculate checksum (class + id + length + payload = 2+2+6 = 10 bytes)
+    uint8_t ck_a, ck_b;
+    calc_checksum(&ubx_cfg_rate[2], 10, &ck_a, &ck_b);
+    ubx_cfg_rate[12] = ck_a;
+    ubx_cfg_rate[13] = ck_b;
+
+    // Send to GPS (not debug UART!)
+    HAL_UART_Transmit(uartAddress, ubx_cfg_rate, 14, 2000);
+    HAL_Delay(100); // Wait for GPS to process
+
+    // Configure GPS: Enable NMEA GGA messages
+    uint8_t ubx_cfg_msg[] = {
+        0xB5, 0x62,       // UBX sync chars
+        0x06, 0x01,       // Class = CFG, ID = MSG
+        0x08, 0x00,       // Length = 8
+        0xF0, 0x00,       // Payload: NMEA GGA (class, id)
+        0x00,             // Rate for I2C
+        0x01,             // Rate for UART1 (enabled)
+        0x00,             // Rate for UART2
+        0x00,             // Rate for USB
+        0x00,             // Rate for SPI
+        0x00,             // Reserved
+        0x00, 0x00        // Checksum (to be filled in)
+    };
+    
+    // Calculate checksum (class + id + length + payload = 2+2+8 = 12 bytes)
+    uint8_t ck_c, ck_d;
+    calc_checksum(&ubx_cfg_msg[2], 12, &ck_c, &ck_d);
+    ubx_cfg_msg[14] = ck_c;
+    ubx_cfg_msg[15] = ck_d;
+
+    // Send to GPS
+    HAL_UART_Transmit(uartAddress, ubx_cfg_msg, 16, 2000);
+    HAL_Delay(100);
+
+    // Start interrupt-based reception
+    HAL_UARTEx_ReceiveToIdle_IT(uartAddress, write_buffer, GPS_BUFFER_SIZE);
+
+    return HAL_OK;
+}
+
+/* OLD POLLING-BASED VERSION (REPLACED - KEPT FOR REFERENCE)
+ * - Blocked main loop for seconds
+ * - CPU wasted 100% while waiting
+
+ * ============================================================================
+ *
+ * int NEOM9N_getData(unsigned char *GPSData){
+ *     unsigned char buffer[10000] = {0};
+ *     int status = 0;
+ *     
+ *     // BLOCKING: Wait up to 2 seconds for first byte
+ *     status = HAL_UART_Receive(uartAddress, buffer, 1, 2000);
+ *     if(status == 3){
+ *         return HAL_ERROR;
+ *     }
+ *     memset(GPSData, 0, 10000);
+ *     strcat(GPSData, buffer);
+ * 
+ *     // BLOCKING LOOP: Read bytes one-by-one with 1ms timeout each
+ *     while(status != 3){
+ *         status = HAL_UART_Receive(uartAddress, buffer, 1, 1);
+ *         if(status != 3){
+ *             strcat(GPSData, buffer);
+ *         }
+ *     }
+ *     return HAL_OK;
+ * }
+ * ============================================================================ */
+
+/* AI-Generated: Cursor AI (Claude Sonnet 4.5) - October 2025
+ * Non-blocking double-buffer implementation */
+// Gets GPS data from buffer (interrupt-based, non-blocking)
+// Returns HAL_OK if new data available, HAL_ERROR if no new data
+int NEOM9N_getData(unsigned char *GPSData){
  
-                 HAL_UART_Transmit(&hlpuart1, ubx_cfg_msg, strlen((uint8_t*)ubx_cfg_msg), 2000);
- 
-         return 0;
- }
- 
- int NEOM9N_CheckConnection(){
-     unsigned char rx_buff[10000] = {0};
-     int status = 0;
-     status = NEOM9N_getData(rx_buff);
- 
-     //debug TO BE REMOVED LATER
-     //HAL_UART_Transmit(&hlpuart1, rx_buff, strlen((char*)rx_buff), 2000);
-     return status;
- 
- }
- 
- //reads from readable buffer, checks if interrupt happened while it was reading (if so, swap pointers)
- int NEOM9N_getData(unsigned char *GPSData){
- 
-     unsigned char buffer[10000] = {0};
-     int status = 0;
-     status = HAL_UART_Receive(uartAddress, buffer, 1, 2000);
-     if(status == 3){
-         return HAL_ERROR;
-     }
-     memset(GPSData, 0, 10000);
- 
-     strcat(GPSData, buffer);
- 
-     while(status != 3){
-     status = HAL_UART_Receive(uartAddress, buffer, 1, 1);
-     if(status != 3){
-         strcat(GPSData, buffer);
-         }
-     }
- 
-     return HAL_OK;
- }
- 
- 
- 
- 
- // used Perplexity AI to generate this function:
+    // Check if new data is ready
+    if (data_ready == 0) {
+        return HAL_ERROR;  // No new data yet
+    }
+    
+    // CRITICAL SECTION: Swap buffers atomically
+    __disable_irq();  // Disable interrupts briefly (~50 nanoseconds)
+    
+    // Swap the buffer pointers
+    uint8_t* temp = read_buffer;
+    read_buffer = write_buffer;
+    write_buffer = temp;
+    
+    // Get size and clear flag
+    uint16_t size = write_size;
+    data_ready = 0;
+    
+    __enable_irq();  // Re-enable interrupts
+    // END CRITICAL SECTION
+    
+    // Now copy data (interrupt can fire safely, writes to OTHER buffer)
+    if (size > 0 && size < GPS_BUFFER_SIZE) {
+        memcpy(GPSData, read_buffer, size);
+        GPSData[size] = '\0';  // Null terminate
+    } else {
+        return HAL_ERROR;
+    }
+    
+    return HAL_OK;
+}
+
+// Checks if new GPS data is ready (non-blocking check)
+int NEOM9N_isDataReady(void){
+    return data_ready;
+}
+
+/* ============================================================================
+ * INTERRUPT CALLBACK FUNCTIONS
+ * AI-Generated: Cursor AI (Claude Sonnet 4.5) - October 2025
+ * These are called automatically by HAL when UART events occur
+ * Implements interrupt-driven GPS data reception using UART IDLE detection
+ * ============================================================================ */
+
+// Called when UART receives data up to buffer size OR IDLE line detected
+// This is the MAIN interrupt handler for GPS data reception
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size) {
+    // Check if this interrupt is from the GPS UART
+    if (huart->Instance == UART5) {
+        // Data is complete in write_buffer, save size and set flag
+        write_size = Size;
+        data_ready = 1;
+        
+        // Restart reception for next GPS burst (uses SAME write_buffer)
+        // Buffer swap happens in getData(), not here!
+        HAL_UARTEx_ReceiveToIdle_IT(uartAddress, write_buffer, GPS_BUFFER_SIZE);
+    }
+}
+
+// Fallback: Called when UART receive completes (buffer full)
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+    // Check if this interrupt is from the GPS UART
+    if (huart->Instance == UART5) {
+        // Buffer is full, set flag
+        write_size = GPS_BUFFER_SIZE;
+        data_ready = 1;
+        
+        // Restart reception
+        HAL_UARTEx_ReceiveToIdle_IT(uartAddress, write_buffer, GPS_BUFFER_SIZE);
+    }
+}
+
+/* ============================================================================
+ * NMEA PARSING FUNCTIONS
+ * These parse specific data from GPS NMEA sentences
+ * ============================================================================ */
+
+// used Perplexity AI to generate this function:
  // https://www.perplexity.ai/search/include-stdio-h-include-string-LhU2sFfoT8CujSTzgv7LbA
  
  int NEOM9N_getPosition(float* latitude, char* latitudeHemisphere,
