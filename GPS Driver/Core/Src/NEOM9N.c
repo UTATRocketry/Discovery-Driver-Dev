@@ -3,6 +3,7 @@
  *
  *  Created on: Mar 18, 2025
  *      Author: William Gomez
+ *      Modified by: Pierce Luu
  */
  #include "NEOM9N.h"
 
@@ -111,10 +112,10 @@ int NEOM9N_init(UART_HandleTypeDef* uartAddressPin){
     return HAL_OK;
 }
 
+/* ============================================================================
 /* OLD POLLING-BASED VERSION (REPLACED - KEPT FOR REFERENCE)
  * - Blocked main loop for seconds
  * - CPU wasted 100% while waiting
-
  * ============================================================================
  *
  * int NEOM9N_getData(unsigned char *GPSData){
@@ -139,6 +140,8 @@ int NEOM9N_init(UART_HandleTypeDef* uartAddressPin){
  *     return HAL_OK;
  * }
  * ============================================================================ */
+
+
 
 /* AI-Generated: Cursor AI (Claude Sonnet 4.5) - October 2025
  * Non-blocking double-buffer implementation */
@@ -217,10 +220,9 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
     }
 }
 
-/* ============================================================================
- * NMEA PARSING FUNCTIONS
- * These parse specific data from GPS NMEA sentences
- * ============================================================================ */
+
+
+
 
 // used Perplexity AI to generate this function:
  // https://www.perplexity.ai/search/include-stdio-h-include-string-LhU2sFfoT8CujSTzgv7LbA
