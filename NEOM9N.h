@@ -2,7 +2,7 @@
  * NEOM9N.h
  *
  *  Created on: Mar 18, 2025
- *      Author: william gomez
+ *      Author: William Gomez
  *      Modified by: Pierce Luu
  */
 
