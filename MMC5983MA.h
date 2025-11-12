@@ -21,9 +21,12 @@
 #include "stm32g0xx_hal.h"
 #include "sensors_defs.h"
 #include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 
 // SPI Handle
 extern SPI_HandleTypeDef hspi1;
+extern UART_HandleTypeDef huart2;
 
 // Pin Definitions
 #define MMC5983MA_CS_PORT GPIOA
@@ -153,5 +156,16 @@ float MMC5983MA_Get_Temp(void);
  */
 void MMC5983MA_SW_Reset(void);
 
+/**
+ * @brief Transmits out the x, y, z values of the magnetometer to externally calibrate with MotionCal
+ * @param mag_data: The output data container for the magnetometer in milligauss
+ */
+void MMC5983MA_Calibrate_MotionCal(vector_t* mag_data);
+
+/**
+ * @brief Applies calibration values to the magnetometer data
+ * @param mag_data: The output data container for the magnetometer in milligauss
+ */
+void MMC5983MA_Calibrate_Data(vector_t* mag_data);
 
 #endif // MMC5983MA_DRIVER_H_

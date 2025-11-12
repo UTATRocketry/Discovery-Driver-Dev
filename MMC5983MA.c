@@ -11,7 +11,7 @@
  * @version 0.1
  * @bug No known bugs.
  */
-#include "MMC5983MC.h"
+#include "MMC5983MA.h"
 #include "sensors_defs.h"
 
 /*
@@ -20,6 +20,14 @@
  * [2] = Set Count
  */
 uint8_t MMC5983MA_SETTINGS[3];
+
+// Calibration Values
+float hard_iron[3] = {0};
+float soft_iron[3][3] = {
+		{1,0,0},
+		{0,1,0},
+		{0,0,1}
+};
 
 uint8_t MMC5983MA_Init(void) {
     HAL_StatusTypeDef status = HAL_OK;
@@ -165,7 +173,7 @@ void MMC5983MA_ReadMagneticField18(vector_t* mag_data) {
     uint8_t buffer[7];
     MMC5983MA_ReadRegisters(MMC5983MA_XOUT_H, buffer, 7);
 
-    // buffer[7] contains two additional bits of x, y, z mag readings
+    // buffer[6] contains two additional bits of x, y, z mag readings
 	uint32_t x_raw = (uint32_t)(buffer[0] << 10 | buffer[1] << 2 | buffer[6] >> 6);
 	uint32_t y_raw = (uint32_t)(buffer[2] << 10 | buffer[3] << 2 | (buffer[6] & 0x30) >> 4);
 	uint32_t z_raw = (uint32_t)(buffer[4] << 10 | buffer[5] << 2 | (buffer[6] & 0x0C) >> 2);
@@ -190,16 +198,65 @@ void MMC5983MA_SW_Reset(void) {
 float MMC5983MA_16Bits_to_mGauss(uint16_t mag_val) {
 	float mag_val_mgauss = (float)mag_val - 65536.0;
 	mag_val_mgauss /= 65536.0;
-	mag_val_mgauss *= 8;
-	return mag_val_mgauss;
+	mag_val_mgauss *= 8; // Get full range of +-8 Gauss
+	return mag_val_mgauss * 1000; // Get milligauss
 }
 
 float MMC5983MA_18Bits_to_mGauss(uint32_t mag_val) {
 	float mag_val_mgauss = (float)mag_val - 131072.0;
 	mag_val_mgauss /= 131072.0;
-	mag_val_mgauss *= 8;
-	return mag_val_mgauss;
+	mag_val_mgauss *= 8; // Get full range of +-8 Gauss
+	return mag_val_mgauss * 1000; // Get milligauss
+}
+
+/*
+ * More in depth explanation of this function:
+ * We are using MotionCal (https://github.com/PaulStoffregen/MotionCal) to calibrate the magnetometer.
+ * MotionCal reads in sensor data over UART in a very specific format, and then automatically performs
+ * calibration and outputs calibration values for the magnetometer.
+ * Required output format for MotionCal: "Raw:{accX},{accY},{accZ},{gyrX},{gyrY},{gyrZ},{magX},{magY},{magZ}\r\n"
+ *
+ * Either way, these calibrations need to happen after the magnetometer has been installed onto the rocket system for accurate
+ * bias values.
+ */
+void MMC5983MA_Calibrate_MotionCal(vector_t* mag_data) {
+	char raw_data[] = "Raw:0,0,0,0,0,0,"; // Currently only require calibration for mag values
+	char new_line[] = "\r\n";
+	char comma = ',';
+
+	// Inputted mag values must be in units of milligauss
+	char x_buffer[8] = "";
+	char y_buffer[8] = "";
+	char z_buffer[8] = "";
+	sprintf(x_buffer, "%d", (int16_t)mag_data->v[0]);
+	sprintf(y_buffer, "%d", (int16_t)mag_data->v[1]);
+	sprintf(z_buffer, "%d", (int16_t)mag_data->v[2]);
+
+	HAL_UART_Transmit(&huart2, (uint8_t*)raw_data, sizeof(raw_data)-1, HAL_UART_TIMEOUT_VALUE);
+	HAL_UART_Transmit(&huart2, (uint8_t*)x_buffer, strlen(x_buffer), HAL_UART_TIMEOUT_VALUE);
+	HAL_UART_Transmit(&huart2, (uint8_t*)&comma, 1, HAL_UART_TIMEOUT_VALUE);
+	HAL_UART_Transmit(&huart2, (uint8_t*)y_buffer, strlen(y_buffer), HAL_UART_TIMEOUT_VALUE);
+	HAL_UART_Transmit(&huart2, (uint8_t*)&comma, 1, HAL_UART_TIMEOUT_VALUE);
+	HAL_UART_Transmit(&huart2, (uint8_t*)z_buffer, strlen(z_buffer), HAL_UART_TIMEOUT_VALUE);
+	HAL_UART_Transmit(&huart2, (uint8_t*)new_line, sizeof(new_line), HAL_UART_TIMEOUT_VALUE);
 }
 
 
 
+// Hard iron offsets are biases in the magnetometer that are created by magnetic
+	// fields emitted by permanent magnets (motors, inductors, etc)
+// Soft iron offsets are biases caused by materials near the magnetometer that
+	// warp/disturb the surrounding magnetic fields
+void MMC5983MA_Calibrate_Data(vector_t* mag_data) {
+	float mag_temp[3] = {0};
+	for (uint8_t i = 0; i < 3; i++) {
+		mag_temp[i] = mag_data->v[i] - hard_iron[i];
+	}
+
+	for (uint8_t i = 0; i < 3; i++) {
+		mag_data->v[i] =
+				soft_iron[i][0] * mag_temp[0] +
+				soft_iron[i][1] * mag_temp[1] +
+				soft_iron[i][2] * mag_temp[2];
+	}
+}
