@@ -26,9 +26,12 @@
      }
  }
  
+
+
+ 
 UART_HandleTypeDef* uartAddress;
 
-/* - DOUBLE BUFFER SYSTEM FOR INTERRUPT-BASED RECEPTION - */
+// double buffer system for interrupt
 #define GPS_BUFFER_SIZE 2048
 
 static uint8_t buffer1[GPS_BUFFER_SIZE];
