@@ -28,8 +28,6 @@
  
 UART_HandleTypeDef* uartAddress;
 
-extern UART_HandleTypeDef hlpuart1;
-
 /* - DOUBLE BUFFER SYSTEM FOR INTERRUPT-BASED RECEPTION - */
 #define GPS_BUFFER_SIZE 2048
 
@@ -38,26 +36,28 @@ static uint8_t buffer2[GPS_BUFFER_SIZE];
 static uint8_t* volatile write_buffer = buffer1;  // Interrupt writes here
 static uint8_t* volatile read_buffer = buffer2;   // Main loop reads here
 static volatile uint16_t write_size = 0;
-static volatile uint8_t data_ready = 0;
+static volatile uint8_t interrupt_happened = 0;  // Flag indicating interrupt occurred
+static volatile uint8_t reading = 0;  // Flag indicating currently copying data
 
 
  
  
 /* AI-Modified: Cursor AI (Claude Sonnet 4.5) - October 2025
  * Fixed UART handle bugs, checksum calculations, and added interrupt initialization
- * Bug fixes and interrupt setup by AI */
+ * Bug fixes and interrupt setup by AI
+ * Lines 51-85 */
 int NEOM9N_init(UART_HandleTypeDef* uartAddressPin){
     if (uartAddressPin == NULL) {
         return HAL_ERROR;
     }
     
     uartAddress = uartAddressPin;
-    int status = 0;
     
     // Initialize buffers
     memset(buffer1, 0, GPS_BUFFER_SIZE);
     memset(buffer2, 0, GPS_BUFFER_SIZE);
-    data_ready = 0;
+    interrupt_happened = 0;
+    reading = 0;
     write_size = 0;
 
     // Configure GPS: Set update rate to 100ms (10Hz)
@@ -112,34 +112,6 @@ int NEOM9N_init(UART_HandleTypeDef* uartAddressPin){
     return HAL_OK;
 }
 
-/* ============================================================================
-/* OLD POLLING-BASED VERSION (REPLACED - KEPT FOR REFERENCE)
- * - Blocked main loop for seconds
- * - CPU wasted 100% while waiting
- * ============================================================================
- *
- * int NEOM9N_getData(unsigned char *GPSData){
- *     unsigned char buffer[10000] = {0};
- *     int status = 0;
- *     
- *     // BLOCKING: Wait up to 2 seconds for first byte
- *     status = HAL_UART_Receive(uartAddress, buffer, 1, 2000);
- *     if(status == 3){
- *         return HAL_ERROR;
- *     }
- *     memset(GPSData, 0, 10000);
- *     strcat(GPSData, buffer);
- * 
- *     // BLOCKING LOOP: Read bytes one-by-one with 1ms timeout each
- *     while(status != 3){
- *         status = HAL_UART_Receive(uartAddress, buffer, 1, 1);
- *         if(status != 3){
- *             strcat(GPSData, buffer);
- *         }
- *     }
- *     return HAL_OK;
- * }
- * ============================================================================ */
 
 
 
@@ -148,46 +120,59 @@ int NEOM9N_init(UART_HandleTypeDef* uartAddressPin){
 // Gets GPS data from buffer (interrupt-based, non-blocking)
 // Returns HAL_OK if new data available, HAL_ERROR if no new data
 int NEOM9N_getData(unsigned char *GPSData){
- 
-    // Check if new data is ready
-    if (data_ready == 0) {
-        return HAL_ERROR;  // No new data yet
+
+    // Check if interrupt happened
+    if (interrupt_happened == 0) {
+        return HAL_ERROR;  // No interrupt yet
     }
-    
-    // CRITICAL SECTION: Swap buffers atomically
-    __disable_irq();  // Disable interrupts briefly (~50 nanoseconds)
-    
-    // Swap the buffer pointers
+
+    // CRITICAL SECTION: Swap buffers atomically before starting the copy
+    __disable_irq();
+
+    // Swap the buffer pointers so read_buffer points to the completed frame
     uint8_t* temp = read_buffer;
     read_buffer = write_buffer;
     write_buffer = temp;
-    
-    // Get size and clear flag
+
+    // Capture size and clear interrupt flag
     uint16_t size = write_size;
-    data_ready = 0;
-    
-    __enable_irq();  // Re-enable interrupts
+    write_size = 0;
+    interrupt_happened = 0;
+
+    __enable_irq();
     // END CRITICAL SECTION
-    
-    // Now copy data (interrupt can fire safely, writes to OTHER buffer)
-    if (size > 0 && size < GPS_BUFFER_SIZE) {
-        memcpy(GPSData, read_buffer, size);
-        GPSData[size] = '\0';  // Null terminate
-    } else {
+
+    // Validate size
+    if (size == 0 || size >= GPS_BUFFER_SIZE) {
         return HAL_ERROR;
     }
-    
+
+    // Start reception for the next burst on the newly freed write buffer
+    if (HAL_UARTEx_ReceiveToIdle_IT(uartAddress, write_buffer, GPS_BUFFER_SIZE) != HAL_OK) {
+        return HAL_ERROR;
+    }
+
+    // Set reading flag before copying (means currently copying over data)
+    reading = 1;
+
+    // Copy data from read_buffer (which now holds the completed frame)
+    memcpy(GPSData, read_buffer, size);
+    GPSData[size] = '\0';  // Null terminate
+
+    // Clear reading flag after copy
+    reading = 0;
+
     return HAL_OK;
 }
 
-// Checks if new GPS data is ready (non-blocking check)
+// Checks if interrupt happened (non-blocking check)
 int NEOM9N_isDataReady(void){
-    return data_ready;
+    return interrupt_happened;
 }
 
 /* ============================================================================
  * INTERRUPT CALLBACK FUNCTIONS
- * AI-Generated: Cursor AI (Claude Sonnet 4.5) - October 2025
+ * AI-Generated: Cursor AI (Claude Sonnet 4.5) - November 2025
  * These are called automatically by HAL when UART events occur
  * Implements interrupt-driven GPS data reception using UART IDLE detection
  * ============================================================================ */
@@ -195,30 +180,25 @@ int NEOM9N_isDataReady(void){
 // Called when UART receives data up to buffer size OR IDLE line detected
 // This is the MAIN interrupt handler for GPS data reception
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size) {
-    // Check if this interrupt is from the GPS UART
-    if (huart->Instance == UART5) {
-        // Data is complete in write_buffer, save size and set flag
+    // Check which GPS UART is giving data (check which GPS out of the two)
+    if (huart->Instance == uartAddress->Instance) {
+        // Store size and raise flag (size varies per burst)
         write_size = Size;
-        data_ready = 1;
-        
-        // Restart reception for next GPS burst (uses SAME write_buffer)
-        // Buffer swap happens in getData(), not here!
-        HAL_UARTEx_ReceiveToIdle_IT(uartAddress, write_buffer, GPS_BUFFER_SIZE);
+        interrupt_happened = 1;
     }
 }
 
 // Fallback: Called when UART receive completes (buffer full)
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-    // Check if this interrupt is from the GPS UART
-    if (huart->Instance == UART5) {
-        // Buffer is full, set flag
+    // Check which GPS UART is giving data (check which GPS out of the two)
+    if (huart->Instance == uartAddress->Instance) {
+        // Buffer is full, set size and flag
         write_size = GPS_BUFFER_SIZE;
-        data_ready = 1;
-        
-        // Restart reception
-        HAL_UARTEx_ReceiveToIdle_IT(uartAddress, write_buffer, GPS_BUFFER_SIZE);
+        interrupt_happened = 1;
     }
 }
+
+
 
 
 

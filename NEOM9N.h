@@ -25,7 +25,7 @@ int NEOM9N_init(UART_HandleTypeDef* uartAddressPin);
 //Returns HAL_OK if new data available, HAL_ERROR if no new data
 int NEOM9N_getData(unsigned char *GPSData);
 
-//Checks if new GPS data is ready
+//Checks if interrupt happened (non-blocking check for new GPS data)
 int NEOM9N_isDataReady(void);
 
 //Parse functions - extract specific data from GPS buffer
