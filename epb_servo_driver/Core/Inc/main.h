@@ -59,6 +59,8 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define ADS131_CS_Pin_Pin GPIO_PIN_3
+#define ADS131_CS_Pin_GPIO_Port GPIOA
 #define USB_OverCurrent_Pin GPIO_PIN_5
 #define USB_OverCurrent_GPIO_Port GPIOG
 #define STLINK_TX_Pin GPIO_PIN_7

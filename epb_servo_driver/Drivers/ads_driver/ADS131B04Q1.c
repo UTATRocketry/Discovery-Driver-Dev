@@ -73,13 +73,21 @@ int ADS131B04Q1_CheckConnection() {
     HAL_GPIO_WritePin(ADS131pinLetter, ADS131_PIN_Number, GPIO_PIN_RESET);
     // send read command, which will read ID register
     status = HAL_SPI_Transmit(ADS131_hspi, readCommand, 3, HAL_MAX_DELAY);
-    if (status == HAL_ERROR) return status;
+    if (status == HAL_ERROR) {
+    	return status;
+    }
 
     HAL_GPIO_WritePin(ADS131pinLetter, ADS131_PIN_Number, GPIO_PIN_SET);
 
     HAL_GPIO_WritePin(ADS131pinLetter, ADS131_PIN_Number, GPIO_PIN_RESET);
     status = HAL_SPI_Receive(ADS131_hspi, RxData, 3, HAL_MAX_DELAY);
     if (status == HAL_ERROR) return status;
+
+    /*
+     * initialise to diffrent spi
+	 * try different wires
+	 * look at slack notes to self
+     */
 
     // drive CS line high
     HAL_GPIO_WritePin(ADS131pinLetter, ADS131_PIN_Number, GPIO_PIN_SET);

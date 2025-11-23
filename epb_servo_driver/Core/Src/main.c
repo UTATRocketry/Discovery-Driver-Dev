@@ -92,16 +92,15 @@ uint32_t TxMailbox;
 uint8_t TxData[8];
 uint8_t RxData[8];
 
+
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
-    CAN_RxHeaderTypeDef RxHeader;
-    uint8_t RxData[8];
+	CAN_RxHeaderTypeDef rxHeader;
+	uint8_t rxData[8];
 
-    if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK)
+	if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rxHeader, rxData) == HAL_OK)
     {
-        // ✅ At this point, the interrupt flag is cleared automatically
-        // because the message has been released from FIFO.
-        // You can now process RxData here.
+        // process RxData
     }
 }
 
@@ -117,8 +116,8 @@ enum ch {
  * checking HAL_OK and communicating via debug_transmit
  */
 void CAN_transmit_voltage(float voltsChannelReading) {
-	TxHeader.DLC = sizeof(voltsChannelReading); // length of data to transmit in bytes (does this work like thissss?)
-	TxData[0] = voltsChannelReading; // sample data
+	TxHeader.DLC = 4; // float is 4 bytes?
+	memcpy(TxData, &voltsChannelReading, sizeof(float));  // copy raw bytes
 
 	int status = 0;
 	status = HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
@@ -266,13 +265,13 @@ int main(void)
 	uint32_t freq = 50;
 	uint8_t fail3 = init_servo_channels(&freq, &htim3, CH1, CH3, CH1, CH1);
 	if (fail3) {
-		debug_transmit("\nInitialisation failed\n");
+		debug_transmit("\nTimer 3 Initialisation failed\n");
 	} else {
 		debug_transmit("\nTimer 3 Channels initialised successfully\n");
 	}
 	uint8_t fail5 = init_servo_channels(&freq, &htim5, CH1, CH1, CH1, CH1);
 	if (fail5) {
-		debug_transmit("\nInitialisation failed\n");
+		debug_transmit("\Timer 5 Initialisation failed\n");
 	} else {
 		debug_transmit("\nTimer 5 Channels initialised successfully\n");
 	}
@@ -500,7 +499,7 @@ static void MX_CAN1_Init(void)
   /* USER CODE END CAN1_Init 1 */
   hcan1.Instance = CAN1;
   hcan1.Init.Prescaler = 12;
-  hcan1.Init.Mode = CAN_MODE_LOOPBACK;
+  hcan1.Init.Mode = CAN_MODE_NORMAL;
   hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
   hcan1.Init.TimeSeg1 = CAN_BS1_13TQ;
   hcan1.Init.TimeSeg2 = CAN_BS2_6TQ;
@@ -653,9 +652,9 @@ static void MX_SPI1_Init(void)
   hspi1.Instance = SPI1;
   hspi1.Init.Mode = SPI_MODE_MASTER;
   hspi1.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi1.Init.DataSize = SPI_DATASIZE_4BIT;
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi1.Init.CLKPhase = SPI_PHASE_2EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
   hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
@@ -663,7 +662,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
   hspi1.Init.CRCPolynomial = 7;
   hspi1.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
-  hspi1.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+  hspi1.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
   if (HAL_SPI_Init(&hspi1) != HAL_OK)
   {
     Error_Handler();
@@ -768,7 +767,7 @@ static void MX_TIM5_Init(void)
   htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim5) != HAL_OK)
   {
-	  Error_Handler();
+    Error_Handler();
   }
   sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
   if (HAL_TIM_ConfigClockSource(&htim5, &sClockSourceConfig) != HAL_OK)
@@ -777,7 +776,7 @@ static void MX_TIM5_Init(void)
   }
   if (HAL_TIM_PWM_Init(&htim5) != HAL_OK)
   {
-	  Error_Handler();
+    Error_Handler();
   }
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
@@ -855,10 +854,10 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOG, GPIO_PIN_6, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, ADS131_CS_Pin_Pin|GPIO_PIN_15, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_15, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOG, GPIO_PIN_6, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(ADC_DRDY_GPIO_Port, ADC_DRDY_Pin, GPIO_PIN_RESET);
@@ -875,10 +874,11 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PA3 */
-  GPIO_InitStruct.Pin = GPIO_PIN_3;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  /*Configure GPIO pins : ADS131_CS_Pin_Pin PA15 */
+  GPIO_InitStruct.Pin = ADS131_CS_Pin_Pin|GPIO_PIN_15;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : USB_OverCurrent_Pin */
@@ -893,13 +893,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : PA15 */
-  GPIO_InitStruct.Pin = GPIO_PIN_15;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PC10 */
   GPIO_InitStruct.Pin = GPIO_PIN_10;
@@ -917,6 +910,15 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(ADC_DRDY_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
+  GPIO_InitStruct.Pin = GPIO_PIN_3;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  // Deselect ADS131B04 initially
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_3, GPIO_PIN_SET);
+
   /* USER CODE END MX_GPIO_Init_2 */
 }
 
