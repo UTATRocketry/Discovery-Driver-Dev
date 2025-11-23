@@ -95,10 +95,8 @@ uint8_t RxData[8];
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
-	CAN_RxHeaderTypeDef rxHeader;
-	uint8_t rxData[8];
 
-	if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rxHeader, rxData) == HAL_OK)
+	if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK)
     {
         // process RxData
     }
@@ -239,7 +237,7 @@ int main(void)
 	HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING); // activate notification of receiving data (we need to write the interrupt timer)
 
 	//before sending the data to the CAN, modify the header: <---------------------------------------------------- SHOULD I PUT THIS IN A FUNCTION?
-	TxHeader.DLC = 1; // length of data to transmit in bytes
+	TxHeader.DLC = 4; // length of data to transmit in bytes
 	TxHeader.ExtId = 0; // zero for basic CAN protocol
 	TxHeader.IDE = CAN_ID_STD; // specifies the identifier (either CAN_ID_STD or CAN_ID_EXT)
 	TxHeader.RTR = CAN_RTR_DATA; // because we're sending data
@@ -499,7 +497,7 @@ static void MX_CAN1_Init(void)
   /* USER CODE END CAN1_Init 1 */
   hcan1.Instance = CAN1;
   hcan1.Init.Prescaler = 12;
-  hcan1.Init.Mode = CAN_MODE_NORMAL;
+  hcan1.Init.Mode = CAN_MODE_LOOPBACK;
   hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
   hcan1.Init.TimeSeg1 = CAN_BS1_13TQ;
   hcan1.Init.TimeSeg2 = CAN_BS2_6TQ;
@@ -517,15 +515,16 @@ static void MX_CAN1_Init(void)
 
 		CAN_FilterTypeDef canfilterconfig;
 		canfilterconfig.FilterActivation = CAN_FILTER_ENABLE;
-		canfilterconfig.FilterBank = 10;
+		canfilterconfig.FilterBank = 0;
 		canfilterconfig.FilterFIFOAssignment = CAN_RX_FIFO0;
-		canfilterconfig.FilterIdHigh = 0;
-		canfilterconfig.FilterIdLow = 0x0000;
-		canfilterconfig.FilterMaskIdHigh = 0;
-		canfilterconfig.FilterMaskIdLow = 0x0000;
+
+		canfilterconfig.FilterIdHigh = 0;   // IMPORTANT: left-shift by 5 bits
+		canfilterconfig.FilterIdLow  = 0;
+		canfilterconfig.FilterMaskIdHigh = (0x7FF << 5);   // match all 11 bits
+		canfilterconfig.FilterMaskIdLow  = 0;
+
 		canfilterconfig.FilterMode = CAN_FILTERMODE_IDMASK;
 		canfilterconfig.FilterScale = CAN_FILTERSCALE_32BIT;
-		canfilterconfig.SlaveStartFilterBank = 0;
 
 		HAL_CAN_ConfigFilter(&hcan1, &canfilterconfig);
 
