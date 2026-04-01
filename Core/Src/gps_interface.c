@@ -1,5 +1,5 @@
 /*
- * gps.c
+ * gps_interface.c
  *
  *  Created on: Mar 11, 2026
  *      Author: prith
@@ -23,11 +23,13 @@ static bool g_initialized = false;
  *  Visible Functions
  * ----------------------- */
 // initalize buffers and all other stuff needed
-void gps_init(UART_HandleTypeDef* huart, RingBuffer* rb, uint8_t* dma_buf) {
+void gps_init(UART_HandleTypeDef* huart, RingBuffer* rb, uint8_t* rb_buf, uint8_t* dma_buf) {
     if (!huart || !rb || !dma_buf) {
         g_initialized = false;
         return;
     }
+
+    rb_init(&rb, rb_buf, sizeof(rb_buf));
 
     gps_parser_init(&g_fix, &g_stats);
 

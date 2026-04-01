@@ -59,269 +59,299 @@ extern DMA_HandleTypeDef hdma_uart5_rx;
 
 /* USER CODE END 0 */
 /**
- * Initializes the Global MSP.
- */
-void HAL_MspInit(void) {
-    /* USER CODE BEGIN MspInit 0 */
+  * Initializes the Global MSP.
+  */
+void HAL_MspInit(void)
+{
 
-    /* USER CODE END MspInit 0 */
+  /* USER CODE BEGIN MspInit 0 */
 
-    __HAL_RCC_SYSCFG_CLK_ENABLE();
-    __HAL_RCC_PWR_CLK_ENABLE();
+  /* USER CODE END MspInit 0 */
 
-    /* System interrupt init*/
+  __HAL_RCC_SYSCFG_CLK_ENABLE();
+  __HAL_RCC_PWR_CLK_ENABLE();
 
-    /* USER CODE BEGIN MspInit 1 */
+  /* System interrupt init*/
 
-    /* USER CODE END MspInit 1 */
+  /* USER CODE BEGIN MspInit 1 */
+
+  /* USER CODE END MspInit 1 */
 }
 
 /**
- * @brief UART MSP Initialization
- * This function configures the hardware resources used in this example
- * @param huart: UART handle pointer
- * @retval None
- */
-void HAL_UART_MspInit(UART_HandleTypeDef* huart) {
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-    RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
-    if (huart->Instance == LPUART1) {
-        /* USER CODE BEGIN LPUART1_MspInit 0 */
+  * @brief UART MSP Initialization
+  * This function configures the hardware resources used in this example
+  * @param huart: UART handle pointer
+  * @retval None
+  */
+void HAL_UART_MspInit(UART_HandleTypeDef* huart)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
+  if(huart->Instance==LPUART1)
+  {
+    /* USER CODE BEGIN LPUART1_MspInit 0 */
 
-        /* USER CODE END LPUART1_MspInit 0 */
+    /* USER CODE END LPUART1_MspInit 0 */
 
-        /** Initializes the peripherals clock
-         */
-        PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_LPUART1;
-        PeriphClkInit.Lpuart1ClockSelection = RCC_LPUART1CLKSOURCE_PCLK1;
-        if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK) {
-            Error_Handler();
-        }
-
-        /* Peripheral clock enable */
-        __HAL_RCC_LPUART1_CLK_ENABLE();
-
-        __HAL_RCC_GPIOG_CLK_ENABLE();
-        HAL_PWREx_EnableVddIO2();
-        /**LPUART1 GPIO Configuration
-        PG7     ------> LPUART1_TX
-        PG8     ------> LPUART1_RX
-        */
-        GPIO_InitStruct.Pin = STLINK_TX_Pin | STLINK_RX_Pin;
-        GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-        GPIO_InitStruct.Pull = GPIO_NOPULL;
-        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-        GPIO_InitStruct.Alternate = GPIO_AF8_LPUART1;
-        HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
-
-        /* USER CODE BEGIN LPUART1_MspInit 1 */
-
-        /* USER CODE END LPUART1_MspInit 1 */
-    } else if (huart->Instance == UART5) {
-        /* USER CODE BEGIN UART5_MspInit 0 */
-
-        /* USER CODE END UART5_MspInit 0 */
-
-        /** Initializes the peripherals clock
-         */
-        PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_UART5;
-        PeriphClkInit.Uart5ClockSelection = RCC_UART5CLKSOURCE_PCLK1;
-        if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK) {
-            Error_Handler();
-        }
-
-        /* Peripheral clock enable */
-        __HAL_RCC_UART5_CLK_ENABLE();
-
-        __HAL_RCC_GPIOC_CLK_ENABLE();
-        __HAL_RCC_GPIOD_CLK_ENABLE();
-        /**UART5 GPIO Configuration
-        PC12     ------> UART5_TX
-        PD2     ------> UART5_RX
-        */
-        GPIO_InitStruct.Pin = GPIO_PIN_12;
-        GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-        GPIO_InitStruct.Pull = GPIO_NOPULL;
-        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-        GPIO_InitStruct.Alternate = GPIO_AF8_UART5;
-        HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
-        GPIO_InitStruct.Pin = GPIO_PIN_2;
-        GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-        GPIO_InitStruct.Pull = GPIO_NOPULL;
-        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-        GPIO_InitStruct.Alternate = GPIO_AF8_UART5;
-        HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
-
-        /* UART5 DMA Init */
-        /* UART5_RX Init */
-        hdma_uart5_rx.Instance = DMA1_Channel1;
-        hdma_uart5_rx.Init.Request = DMA_REQUEST_UART5_RX;
-        hdma_uart5_rx.Init.Direction = DMA_PERIPH_TO_MEMORY;
-        hdma_uart5_rx.Init.PeriphInc = DMA_PINC_DISABLE;
-        hdma_uart5_rx.Init.MemInc = DMA_MINC_ENABLE;
-        hdma_uart5_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
-        hdma_uart5_rx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
-        hdma_uart5_rx.Init.Mode = DMA_CIRCULAR;
-        hdma_uart5_rx.Init.Priority = DMA_PRIORITY_LOW;
-        if (HAL_DMA_Init(&hdma_uart5_rx) != HAL_OK) {
-            Error_Handler();
-        }
-
-        __HAL_LINKDMA(huart, hdmarx, hdma_uart5_rx);
-
-        /* UART5 interrupt Init */
-        HAL_NVIC_SetPriority(UART5_IRQn, 0, 0);
-        HAL_NVIC_EnableIRQ(UART5_IRQn);
-        /* USER CODE BEGIN UART5_MspInit 1 */
-
-        /* USER CODE END UART5_MspInit 1 */
+  /** Initializes the peripherals clock
+  */
+    PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_LPUART1;
+    PeriphClkInit.Lpuart1ClockSelection = RCC_LPUART1CLKSOURCE_PCLK1;
+    if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+    {
+      Error_Handler();
     }
+
+    /* Peripheral clock enable */
+    __HAL_RCC_LPUART1_CLK_ENABLE();
+
+    __HAL_RCC_GPIOG_CLK_ENABLE();
+    HAL_PWREx_EnableVddIO2();
+    /**LPUART1 GPIO Configuration
+    PG7     ------> LPUART1_TX
+    PG8     ------> LPUART1_RX
+    */
+    GPIO_InitStruct.Pin = STLINK_TX_Pin|STLINK_RX_Pin;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    GPIO_InitStruct.Alternate = GPIO_AF8_LPUART1;
+    HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
+
+    /* USER CODE BEGIN LPUART1_MspInit 1 */
+
+    /* USER CODE END LPUART1_MspInit 1 */
+  }
+  else if(huart->Instance==UART5)
+  {
+    /* USER CODE BEGIN UART5_MspInit 0 */
+
+    /* USER CODE END UART5_MspInit 0 */
+
+  /** Initializes the peripherals clock
+  */
+    PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_UART5;
+    PeriphClkInit.Uart5ClockSelection = RCC_UART5CLKSOURCE_PCLK1;
+    if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    /* Peripheral clock enable */
+    __HAL_RCC_UART5_CLK_ENABLE();
+
+    __HAL_RCC_GPIOC_CLK_ENABLE();
+    __HAL_RCC_GPIOD_CLK_ENABLE();
+    /**UART5 GPIO Configuration
+    PC12     ------> UART5_TX
+    PD2     ------> UART5_RX
+    */
+    GPIO_InitStruct.Pin = GPIO_PIN_12;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    GPIO_InitStruct.Alternate = GPIO_AF8_UART5;
+    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+    GPIO_InitStruct.Pin = GPIO_PIN_2;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    GPIO_InitStruct.Alternate = GPIO_AF8_UART5;
+    HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+    /* UART5 DMA Init */
+    /* UART5_RX Init */
+    hdma_uart5_rx.Instance = DMA1_Channel1;
+    hdma_uart5_rx.Init.Request = DMA_REQUEST_UART5_RX;
+    hdma_uart5_rx.Init.Direction = DMA_PERIPH_TO_MEMORY;
+    hdma_uart5_rx.Init.PeriphInc = DMA_PINC_DISABLE;
+    hdma_uart5_rx.Init.MemInc = DMA_MINC_ENABLE;
+    hdma_uart5_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+    hdma_uart5_rx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+    hdma_uart5_rx.Init.Mode = DMA_CIRCULAR;
+    hdma_uart5_rx.Init.Priority = DMA_PRIORITY_LOW;
+    if (HAL_DMA_Init(&hdma_uart5_rx) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    __HAL_LINKDMA(huart,hdmarx,hdma_uart5_rx);
+
+    /* UART5 interrupt Init */
+    HAL_NVIC_SetPriority(UART5_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(UART5_IRQn);
+    /* USER CODE BEGIN UART5_MspInit 1 */
+
+    /* USER CODE END UART5_MspInit 1 */
+  }
+
 }
 
 /**
- * @brief UART MSP De-Initialization
- * This function freeze the hardware resources used in this example
- * @param huart: UART handle pointer
- * @retval None
- */
-void HAL_UART_MspDeInit(UART_HandleTypeDef* huart) {
-    if (huart->Instance == LPUART1) {
-        /* USER CODE BEGIN LPUART1_MspDeInit 0 */
+  * @brief UART MSP De-Initialization
+  * This function freeze the hardware resources used in this example
+  * @param huart: UART handle pointer
+  * @retval None
+  */
+void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
+{
+  if(huart->Instance==LPUART1)
+  {
+    /* USER CODE BEGIN LPUART1_MspDeInit 0 */
 
-        /* USER CODE END LPUART1_MspDeInit 0 */
-        /* Peripheral clock disable */
-        __HAL_RCC_LPUART1_CLK_DISABLE();
+    /* USER CODE END LPUART1_MspDeInit 0 */
+    /* Peripheral clock disable */
+    __HAL_RCC_LPUART1_CLK_DISABLE();
 
-        /**LPUART1 GPIO Configuration
-        PG7     ------> LPUART1_TX
-        PG8     ------> LPUART1_RX
-        */
-        HAL_GPIO_DeInit(GPIOG, STLINK_TX_Pin | STLINK_RX_Pin);
+    /**LPUART1 GPIO Configuration
+    PG7     ------> LPUART1_TX
+    PG8     ------> LPUART1_RX
+    */
+    HAL_GPIO_DeInit(GPIOG, STLINK_TX_Pin|STLINK_RX_Pin);
 
-        /* USER CODE BEGIN LPUART1_MspDeInit 1 */
+    /* USER CODE BEGIN LPUART1_MspDeInit 1 */
 
-        /* USER CODE END LPUART1_MspDeInit 1 */
-    } else if (huart->Instance == UART5) {
-        /* USER CODE BEGIN UART5_MspDeInit 0 */
+    /* USER CODE END LPUART1_MspDeInit 1 */
+  }
+  else if(huart->Instance==UART5)
+  {
+    /* USER CODE BEGIN UART5_MspDeInit 0 */
 
-        /* USER CODE END UART5_MspDeInit 0 */
-        /* Peripheral clock disable */
-        __HAL_RCC_UART5_CLK_DISABLE();
+    /* USER CODE END UART5_MspDeInit 0 */
+    /* Peripheral clock disable */
+    __HAL_RCC_UART5_CLK_DISABLE();
 
-        /**UART5 GPIO Configuration
-        PC12     ------> UART5_TX
-        PD2     ------> UART5_RX
-        */
-        HAL_GPIO_DeInit(GPIOC, GPIO_PIN_12);
+    /**UART5 GPIO Configuration
+    PC12     ------> UART5_TX
+    PD2     ------> UART5_RX
+    */
+    HAL_GPIO_DeInit(GPIOC, GPIO_PIN_12);
 
-        HAL_GPIO_DeInit(GPIOD, GPIO_PIN_2);
+    HAL_GPIO_DeInit(GPIOD, GPIO_PIN_2);
 
-        /* UART5 DMA DeInit */
-        HAL_DMA_DeInit(huart->hdmarx);
+    /* UART5 DMA DeInit */
+    HAL_DMA_DeInit(huart->hdmarx);
 
-        /* UART5 interrupt DeInit */
-        HAL_NVIC_DisableIRQ(UART5_IRQn);
-        /* USER CODE BEGIN UART5_MspDeInit 1 */
+    /* UART5 interrupt DeInit */
+    HAL_NVIC_DisableIRQ(UART5_IRQn);
+    /* USER CODE BEGIN UART5_MspDeInit 1 */
 
-        /* USER CODE END UART5_MspDeInit 1 */
-    }
+    /* USER CODE END UART5_MspDeInit 1 */
+  }
+
 }
 
 /**
- * @brief PCD MSP Initialization
- * This function configures the hardware resources used in this example
- * @param hpcd: PCD handle pointer
- * @retval None
- */
-void HAL_PCD_MspInit(PCD_HandleTypeDef* hpcd) {
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-    RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
-    if (hpcd->Instance == USB_OTG_FS) {
-        /* USER CODE BEGIN USB_OTG_FS_MspInit 0 */
+  * @brief PCD MSP Initialization
+  * This function configures the hardware resources used in this example
+  * @param hpcd: PCD handle pointer
+  * @retval None
+  */
+void HAL_PCD_MspInit(PCD_HandleTypeDef* hpcd)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
+  if(hpcd->Instance==USB_OTG_FS)
+  {
+    /* USER CODE BEGIN USB_OTG_FS_MspInit 0 */
 
-        /* USER CODE END USB_OTG_FS_MspInit 0 */
+    /* USER CODE END USB_OTG_FS_MspInit 0 */
 
-        /** Initializes the peripherals clock
-         */
-        PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USB;
-        PeriphClkInit.UsbClockSelection = RCC_USBCLKSOURCE_HSI48;
-        if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK) {
-            Error_Handler();
-        }
-
-        __HAL_RCC_GPIOA_CLK_ENABLE();
-        /**USB_OTG_FS GPIO Configuration
-        PA8     ------> USB_OTG_FS_SOF
-        PA9     ------> USB_OTG_FS_VBUS
-        PA10     ------> USB_OTG_FS_ID
-        PA11     ------> USB_OTG_FS_DM
-        PA12     ------> USB_OTG_FS_DP
-        */
-        GPIO_InitStruct.Pin = USB_SOF_Pin | USB_ID_Pin | USB_DM_Pin | USB_DP_Pin;
-        GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-        GPIO_InitStruct.Pull = GPIO_NOPULL;
-        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-        GPIO_InitStruct.Alternate = GPIO_AF10_OTG_FS;
-        HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-        GPIO_InitStruct.Pin = USB_VBUS_Pin;
-        GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-        GPIO_InitStruct.Pull = GPIO_NOPULL;
-        HAL_GPIO_Init(USB_VBUS_GPIO_Port, &GPIO_InitStruct);
-
-        /* Peripheral clock enable */
-        __HAL_RCC_USB_OTG_FS_CLK_ENABLE();
-
-        /* Enable VDDUSB */
-        if (__HAL_RCC_PWR_IS_CLK_DISABLED()) {
-            __HAL_RCC_PWR_CLK_ENABLE();
-            HAL_PWREx_EnableVddUSB();
-            __HAL_RCC_PWR_CLK_DISABLE();
-        } else {
-            HAL_PWREx_EnableVddUSB();
-        }
-        /* USER CODE BEGIN USB_OTG_FS_MspInit 1 */
-
-        /* USER CODE END USB_OTG_FS_MspInit 1 */
+  /** Initializes the peripherals clock
+  */
+    PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USB;
+    PeriphClkInit.UsbClockSelection = RCC_USBCLKSOURCE_HSI48;
+    if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+    {
+      Error_Handler();
     }
+
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    /**USB_OTG_FS GPIO Configuration
+    PA8     ------> USB_OTG_FS_SOF
+    PA9     ------> USB_OTG_FS_VBUS
+    PA10     ------> USB_OTG_FS_ID
+    PA11     ------> USB_OTG_FS_DM
+    PA12     ------> USB_OTG_FS_DP
+    */
+    GPIO_InitStruct.Pin = USB_SOF_Pin|USB_ID_Pin|USB_DM_Pin|USB_DP_Pin;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    GPIO_InitStruct.Alternate = GPIO_AF10_OTG_FS;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+    GPIO_InitStruct.Pin = USB_VBUS_Pin;
+    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(USB_VBUS_GPIO_Port, &GPIO_InitStruct);
+
+    /* Peripheral clock enable */
+    __HAL_RCC_USB_OTG_FS_CLK_ENABLE();
+
+    /* Enable VDDUSB */
+    if(__HAL_RCC_PWR_IS_CLK_DISABLED())
+    {
+      __HAL_RCC_PWR_CLK_ENABLE();
+      HAL_PWREx_EnableVddUSB();
+      __HAL_RCC_PWR_CLK_DISABLE();
+    }
+    else
+    {
+      HAL_PWREx_EnableVddUSB();
+    }
+    /* USER CODE BEGIN USB_OTG_FS_MspInit 1 */
+
+    /* USER CODE END USB_OTG_FS_MspInit 1 */
+
+  }
+
 }
 
 /**
- * @brief PCD MSP De-Initialization
- * This function freeze the hardware resources used in this example
- * @param hpcd: PCD handle pointer
- * @retval None
- */
-void HAL_PCD_MspDeInit(PCD_HandleTypeDef* hpcd) {
-    if (hpcd->Instance == USB_OTG_FS) {
-        /* USER CODE BEGIN USB_OTG_FS_MspDeInit 0 */
+  * @brief PCD MSP De-Initialization
+  * This function freeze the hardware resources used in this example
+  * @param hpcd: PCD handle pointer
+  * @retval None
+  */
+void HAL_PCD_MspDeInit(PCD_HandleTypeDef* hpcd)
+{
+  if(hpcd->Instance==USB_OTG_FS)
+  {
+    /* USER CODE BEGIN USB_OTG_FS_MspDeInit 0 */
 
-        /* USER CODE END USB_OTG_FS_MspDeInit 0 */
-        /* Peripheral clock disable */
-        __HAL_RCC_USB_OTG_FS_CLK_DISABLE();
+    /* USER CODE END USB_OTG_FS_MspDeInit 0 */
+    /* Peripheral clock disable */
+    __HAL_RCC_USB_OTG_FS_CLK_DISABLE();
 
-        /**USB_OTG_FS GPIO Configuration
-        PA8     ------> USB_OTG_FS_SOF
-        PA9     ------> USB_OTG_FS_VBUS
-        PA10     ------> USB_OTG_FS_ID
-        PA11     ------> USB_OTG_FS_DM
-        PA12     ------> USB_OTG_FS_DP
-        */
-        HAL_GPIO_DeInit(GPIOA, USB_SOF_Pin | USB_VBUS_Pin | USB_ID_Pin | USB_DM_Pin | USB_DP_Pin);
+    /**USB_OTG_FS GPIO Configuration
+    PA8     ------> USB_OTG_FS_SOF
+    PA9     ------> USB_OTG_FS_VBUS
+    PA10     ------> USB_OTG_FS_ID
+    PA11     ------> USB_OTG_FS_DM
+    PA12     ------> USB_OTG_FS_DP
+    */
+    HAL_GPIO_DeInit(GPIOA, USB_SOF_Pin|USB_VBUS_Pin|USB_ID_Pin|USB_DM_Pin
+                          |USB_DP_Pin);
 
-        /* Disable VDDUSB */
-        if (__HAL_RCC_PWR_IS_CLK_DISABLED()) {
-            __HAL_RCC_PWR_CLK_ENABLE();
-            HAL_PWREx_DisableVddUSB();
-            __HAL_RCC_PWR_CLK_DISABLE();
-        } else {
-            HAL_PWREx_DisableVddUSB();
-        }
-        /* USER CODE BEGIN USB_OTG_FS_MspDeInit 1 */
-
-        /* USER CODE END USB_OTG_FS_MspDeInit 1 */
+    /* Disable VDDUSB */
+    if(__HAL_RCC_PWR_IS_CLK_DISABLED())
+    {
+      __HAL_RCC_PWR_CLK_ENABLE();
+      HAL_PWREx_DisableVddUSB();
+      __HAL_RCC_PWR_CLK_DISABLE();
     }
+    else
+    {
+      HAL_PWREx_DisableVddUSB();
+    }
+    /* USER CODE BEGIN USB_OTG_FS_MspDeInit 1 */
+
+    /* USER CODE END USB_OTG_FS_MspDeInit 1 */
+  }
+
 }
 
 /* USER CODE BEGIN 1 */
