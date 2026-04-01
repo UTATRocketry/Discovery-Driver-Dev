@@ -500,7 +500,6 @@ static HAL_StatusTypeDef gpsSwitchBaud(UART_HandleTypeDef* huart_gps, uint32_t n
 
     const uint16_t pkt_length = 20;
 
-    /* ai generated beneath */
     // Stop recieving while switching baud rate
     HAL_UART_AbortReceive(huart_gps);
     __HAL_UART_DISABLE_IT(huart_gps, UART_IT_RXNE);
@@ -518,6 +517,8 @@ static HAL_StatusTypeDef gpsSwitchBaud(UART_HandleTypeDef* huart_gps, uint32_t n
     }
 
     // Give GPS time to switch UART baud
+    // neom9n integration module reccomends at least 100 ms
+    // pg 26 has good info on why change baud rate and how
     HAL_Delay(200);
 
     // Switch STM32 UART baud to match
@@ -531,10 +532,11 @@ static HAL_StatusTypeDef gpsSwitchBaud(UART_HandleTypeDef* huart_gps, uint32_t n
     }
 
     // Restart GPS RX-to-idle
-    gpsUartStartRx(&gpsUart);
+    gpsUartStartRx(&gps_uart);
 
     return HAL_OK;
 }
+
 /* USER CODE END 4 */
 
 /**

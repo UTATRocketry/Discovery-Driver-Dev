@@ -24,36 +24,34 @@
 #include <stdint.h>
 
 #include "ring_buffer.h"
-#include "stm32l4xx_hal.h" /*Needed for UART*/
+#include "stm32l4xx_hal.h"  // needed for UART
 
 /* -----------------------
- *  Structs
+ * Structs
  * ----------------------- */
 typedef struct {
-    UART_HandleTypeDef* huart;  // UART used for GPS (&huart5 rn)
-    RingBuffer* rb;             // ring buffer as main storage (must be already initalized)
-
-    uint8_t* dmaBuffer;             // DMA circular RX buffer storage
-    size_t dmaBufferLength;         // length of dmaBuf in bytes
-    volatile size_t dmaLastIndex;   // last processed index into dmaBuf [0..dmaLen-1]
-    volatile uint32_t rbDropBytes;  // check for overflow and how many bytes were lost
-} GpsUart;
+    UART_HandleTypeDef* huart;        // UART used for GPS (&huart5 rn)
+    RingBuffer* rb;                   // ring buffer as main storage (must be already initalized)
+    uint8_t* dma_buffer;              // DMA circular RX buffer storage
+    size_t dma_buffer_length;         // length of dmaBuf in bytes
+    volatile size_t dma_last_index;   // last processed index into dmaBuf [0..dmaLen-1]
+    volatile uint32_t rb_drop_bytes;  // check for overflow and how many bytes were lost
+} GpsUartHandler;
 
 /* -----------------------
- *  Functions
+ * Functions
  * ----------------------- */
-
 // Initalize UART, ring buffer, DMA RX buffer
-bool gpsUartInit(GpsUart* gpsUart, UART_HandleTypeDef* uartAddressPin, RingBuffer* rb, uint8_t* dmaBuffer,
-                 size_t dmaBufferLength);
+bool gps_uart_init(GpsUartHandler* gps_uart, UART_HandleTypeDef* uart_address_pin, RingBuffer* rb,
+                   uint8_t* dma_buffer, size_t dma_buffer_length);
 
 // Start UART Receive-to-IDLE with DMA into dmaBuffer (circular). (called once after init)
-HAL_StatusTypeDef gpsUartStartRx(GpsUart* gpsUart);
+HAL_StatusTypeDef gps_uart_start_rx(GpsUartHandler* gps_uart);
 
 // Put new bytes from the DMA buffer into the ring buffer. HAL_UARTEx_RxEventCallback calls this
-void gpsUartOnRxEvent(GpsUart* gpsUart, uint16_t size);
+void gps_uart_on_rx_event(GpsUartHandler* gps_uart, uint16_t size);
 
 // a wrapper around the ring buffer function rbRead(). returns number of bytes actually read
-size_t gpsUartRead(GpsUart* gpsUart, uint8_t* out, size_t maxLength);
+size_t gps_uart_read(GpsUartHandler* gps__uart, uint8_t* out, size_t max_length);
 
-#endif /* INC_GPS_UART_H_ */
+#endif

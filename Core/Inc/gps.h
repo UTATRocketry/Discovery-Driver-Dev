@@ -27,4 +27,4 @@ void gpsProcess(void);  // call periodically
 bool gpsGetFix(GpsFix* out);
 bool gpsHasFix(void);
 
-#endif /* INC_GPS_H_ */
+#endif
