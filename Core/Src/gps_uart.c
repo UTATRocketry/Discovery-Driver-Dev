@@ -15,7 +15,7 @@
  *  Internal Helper Functions
  * ----------------------- */
 // return ring buffer overflow
-// static inline uint32_t getBufferOverflow(const GpsUartHandler* gpsUart) {
+// static inline size_t getBufferOverflow(const GpsUartHandler* gpsUart) {
 //     return (gpsUart && gpsUart->rb) ? gpsUart->rb->overflowCount : 0;
 // }
 
@@ -26,7 +26,7 @@ static size_t mod_distance(size_t a, size_t b, size_t m) {
 }
 
 // Harvest bytes from dmaBuffer[oldPos..newPos) into ring buffer, with wrap handling
-static void data_into_ring(GpsUartHandler* gps_uart, size_t new_pos) {
+static void data_into_ring(ParserStats* debugger, GpsUartHandler* gps_uart, size_t new_pos) {
     // All AI generated, not modified
     if (!gps_uart || !gps_uart->rb || !gps_uart->dma_buffer || gps_uart->dma_buffer_length == 0)
         return;
@@ -74,29 +74,29 @@ static void data_into_ring(GpsUartHandler* gps_uart, size_t new_pos) {
     }
 
     gps_uart->dma_last_index = new_pos;
+
+    debugger->total_bytes_received += attempted;  // increment
 }
 
 // Determine current DMA write position in circular buffer using DMA counter
-static size_t get_dma_write_position(const GpsUartHandler* gps_uart, uint16_t size_hint) {
-    // All AI generated, not modified
-    // purpose is to figure out the correct write position cause HAL_UARTEx_RxEventCallback(..., Size) from HAL driver
-    // might not give the right awnser for circular buffers apperently
-    if (!gps_uart || !gps_uart->huart || !gps_uart->dma_buffer_length) return 0;
+static size_t get_dma_write_position(const GpsUartHandler* gps_uart) {
+    // basic checks
+    if (!gps_uart || !gps_uart->huart || !gps_uart->huart->hdmarx)
+        return 0;
 
-    // If HAL linked the RX DMA handle, we can compute the current write index:
-    // pos = dmaLen - NDTR
-    if (gps_uart->huart->hdmarx != NULL) {
-        uint32_t remaining = __HAL_DMA_GET_COUNTER(gps__uart->huart->hdmarx);
-        size_t pos = gps_uart->dma_buffer_length - (size_t)remaining;
+    size_t len = gps_uart->dma_buffer_length;
 
-        if (pos >= gps_uart->dma_buffer_length)
-            pos %= gps_uart->dma_buffer_length;
-        return pos;
-    }
+    // get the number of remaining data units in the current DMA Channel transfer (remianing)
+    // subtract remaining from length to get current position
+    // NDTR (Number of Data Register) starts with len and decrements as data transfers
+    // so, NDTR <= len always. Wraps around from 0 to len in circular mode
+    // use Len - NDTR  to calc current write position in DMA buffer
+    size_t remaining = __HAL_DMA_GET_COUNTER(gps_uart->huart->hdmarx);
+    size_t pos = len - (size_t)remaining;
 
-    // Fallback: HAL's sizeHint is often "bytes in buffer" for RxEventCallback.
-    size_t pos = (size_t)size_hint;
-    if (pos >= gps_uart->dma_buffer_length) pos %= gps_uart->dma_buffer_length;
+    if (pos == len)
+        pos = 0;  // cause circular buffer, wrap around
+
     return pos;
 }
 
@@ -133,33 +133,39 @@ HAL_StatusTypeDef gps_uart_start_rx(GpsUartHandler* gps_uart) {
         return HAL_ERROR;
 
     // clear
-    gps_uart->dma_last_index = 0;
+    gps_uart->dma_last_index = 0;  // no need for smth like memset, dma will overwrite the garbage data anyway
     rb_reset(gps_uart->rb);
 
     // Start Receive-to-IDLE with DMA into the circular buffer
     HAL_StatusTypeDef st = HAL_UARTEx_ReceiveToIdle_DMA(gps_uart->huart, gps_uart->dma_buffer,
                                                         gps_uart->dma_buffer_length);
-    if (st != HAL_OK) return st;
 
-    // Disable half-transfer interrupts to reduce IRQ load.
-    // IDLE events will still happen and RxEventCallback will still get called to take stuff from dmaBuffer and put into
-    // custom ring buffer.
-    // however, we are not disabling the transfer complete inturrupt from the DMA
-    if (gps_uart->huart->hdmarx != NULL)
-        __HAL_DMA_DISABLE_IT(gps_uart->huart->hdmarx, DMA_IT_HT);
+    if (st != HAL_OK)
+        return st;  // return wtv error code
+
+    // // Disable half-transfer interrupts to reduce IRQ load.
+    // // IDLE events will still happen and RxEventCallback will still get called to take stuff from dmaBuffer and put into
+    // // custom ring buffer.
+    // // however, we are not disabling the transfer complete inturrupt from the DMA
+    // if (gps_uart->huart->hdmarx != NULL)
+    //     __HAL_DMA_DISABLE_IT(gps_uart->huart->hdmarx, DMA_IT_HT);
 
     return HAL_OK;
 }
 
-// if data recieved, put into the ring buffer
-void gps_uart_on_rx_event(GpsUartHandler* gps_uart, uint16_t size) {
-    if (!gps_uart || !gps_uart->huart) return;
-    size_t new_pos = get_dma_write_position(gps_uart, size);  // figure out where the DMA is currently wirting
-    data_into_ring(gps_uart, new_pos);                        // put new data into the ring buffer.
+// if data recieved, take from dma buffer, put into the ring buffer
+void gps_uart_on_rx_event(ParserStats* debugger, GpsUartHandler* gps_uart) {
+    if (!gps_uart || !gps_uart->huart)
+        return;
+
+    size_t new_pos = get_dma_write_position(gps_uart);  // figure out where the DMA is currently wirting
+    data_into_ring(debugger, gps_uart, new_pos);        // read from dma buffer into the ring buffer.
 }
 
-// a wrapper around the ring buffer function rbRead(). returns number of bytes actually read
+// a wrapper around the ring buffer function rbRead(). returns max_length bytse read
 size_t gps_uart_read(GpsUartHandler* gps_uart, uint8_t* out, size_t max_length) {
-    if (!gps_uart || !gps_uart->rb || !out || max_length == 0) return 0;
+    if (!gps_uart || !gps_uart->rb || !out || max_length == 0)
+        return 0;
+
     return rb_read(gps_uart->rb, out, max_length);
 }

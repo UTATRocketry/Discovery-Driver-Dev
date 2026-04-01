@@ -161,8 +161,6 @@ void gps_parser_feed(ParserStats* debugger, GpsFix* fix, const uint8_t* data, si
     if (!data || length == 0)  // check if data was even given
         return;
 
-    debugger->total_bytes_received += length;  // increment
-
     for (size_t i = 0; i < length; i++) {
         char c = (char)data[i];
 

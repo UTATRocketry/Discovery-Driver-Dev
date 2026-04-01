@@ -24,6 +24,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "gps_interface.h"  //contains ParserStats struct
+
 #define NMEA_MAX_LEN 256  // using 256 bytes as upper bound for max characters in gga/rmc nmea string
 
 /*-----------------------
@@ -36,21 +38,8 @@ typedef struct {
     float alt;                // altitude
     float speed_mps;          // meters per second. (converted from RMC knots)
     uint8_t satellites_used;  // from data sent by GGA
-    uint32_t last_update_ms;  // can measure navigation rate / fix rate (hz) (default is 1Hz)
+    size_t last_update_ms;    // can measure navigation rate / fix rate (hz) (default is 1Hz)
 } GpsFix;
-
-typedef struct {
-    uint32_t total_bytes_received;
-    uint32_t sentences_seen;
-    uint32_t checksum_failure;
-    uint32_t valid_sentences;
-    uint32_t line_overflow_drops;    // sentence too long / buffer overflow
-    uint32_t ring_buffer_overflows;  // FIFO full, data lost
-    uint32_t parsed_gga_count;
-    uint32_t parsed_rmc_count;
-    uint32_t ignored_sentences;
-    uint32_t max_sentence_length_seen;
-} ParserStats;  // for the sake of debugging, can be removed later if needed
 
 /*-----------------------
  * Function Declarations
@@ -62,6 +51,6 @@ void gps_parser_init(GpsFix* fix, ParserStats* debugger);
 void gps_parser_init(GpsFix* fix, ParserStats* debugger);
 
 // feed raw bytes; internally extracts full NMEA sentences and updates fix
-void parse_sentence(ParserStats* debugger, GpsFix* fix, char* sentence, uint32_t message_timestamp);
+void parse_sentence(ParserStats* debugger, GpsFix* fix, char* sentence, size_t message_timestamp);
 
 #endif /* INC_GPS_PARSER_H_ */

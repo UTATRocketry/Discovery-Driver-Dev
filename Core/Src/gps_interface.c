@@ -5,7 +5,7 @@
  *      Author: prith
  */
 
-#include "gps.h"
+#include "gps_interface.h"
 
 #include "gps_parser.h"
 #include "gps_uart.h"
