@@ -1,0 +1,21 @@
+# Build outputs
+Debug/
+Release/
+*.elf
+*.bin
+*.hex
+*.map
+*.lst
+*.o
+*.d
+
+# IDE/Local Settings
+.settings/
+.metadata/
+*.launch
+.mxproject
+
+# Keep core project files
+# .project
+# .cproject
+# .ioc
