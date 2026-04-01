@@ -24,9 +24,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "gps_interface.h"  //contains ParserStats struct
+#include "gps_parser.h"  //contains ParserStats struct
 #include "ring_buffer.h"
 #include "stm32l4xx_hal.h"  // needed for UART
+
+#define DMA_LEN 256  // using 256 bytes as upper bound for any nmea string (CHECK THIS CALCULATION)
 
 /* -----------------------
  * Structs
@@ -45,13 +47,13 @@ typedef struct {
  * ----------------------- */
 // Initalize UART, ring buffer, DMA RX buffer
 bool gps_uart_init(GpsUartHandler* gps_uart, UART_HandleTypeDef* uart_address_pin, RingBuffer* rb,
-                   uint8_t* dma_buffer, size_t dma_buffer_length);
+                   uint8_t* dma_buffer);
 
 // Start UART Receive-to-IDLE with DMA into dmaBuffer (circular). (called once after init)
 HAL_StatusTypeDef gps_uart_start_rx(GpsUartHandler* gps_uart);
 
 // Put new bytes from the DMA buffer into the ring buffer. HAL_UARTEx_RxEventCallback calls this
-void gps_uart_on_rx_event(ParserStats* debugger, GpsUartHandler* gps_uart);
+void gps_uart_on_rx_event(GpsStats* debugger, GpsUartHandler* gps_uart);
 
 // a wrapper around the ring buffer function rbRead(). returns number of bytes actually read
 size_t gps_uart_read(GpsUartHandler* gps__uart, uint8_t* out, size_t max_length);

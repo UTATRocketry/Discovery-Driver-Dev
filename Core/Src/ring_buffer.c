@@ -97,7 +97,7 @@ size_t rb_available(const RingBuffer* rb) {
 }
 
 // clear everything in case of error
-void rbReset(RingBuffer* rb) {
+void rb_reset(RingBuffer* rb) {
     if (!rb) return;
 
     rb->head = 0;

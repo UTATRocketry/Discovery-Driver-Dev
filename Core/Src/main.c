@@ -21,14 +21,11 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-// #include "NEOM9N.h"
 #include <stdio.h>
 #include <string.h>
 
-#include "gps.h"
-#include "gps_parser.h"
-#include "gps_uart.h"
-#include "ring_buffer.h"
+#include "gps_interface.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -37,8 +34,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define GPS_DMA_BUF_LEN 256  // power of 2
-#define GPS_RB_LEN 2048      // power of 2
+#define GPS_RB_LEN 2048
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -53,8 +49,7 @@ DMA_HandleTypeDef hdma_uart5_rx;
 PCD_HandleTypeDef hpcd_USB_OTG_FS;
 
 /* USER CODE BEGIN PV */
-static GpsFix gpsFix;
-static uint32_t lastPrintMs = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -66,10 +61,6 @@ static void MX_USB_OTG_FS_PCD_Init(void);
 static void MX_UART5_Init(void);
 /* USER CODE BEGIN PFP */
 void SystemClock_Config(void);
-static void MX_GPIO_Init(void);
-static void MX_LPUART1_UART_Init(void);
-static void MX_USB_OTG_FS_PCD_Init(void);
-static void MX_UART5_Init(void);
 static HAL_StatusTypeDef gpsSwitchBaud(UART_HandleTypeDef* huart_gps, uint32_t newBaud, uint8_t save);
 /* USER CODE END PFP */
 
@@ -77,8 +68,10 @@ static HAL_StatusTypeDef gpsSwitchBaud(UART_HandleTypeDef* huart_gps, uint32_t n
 /* USER CODE BEGIN 0 */
 // We use Receive-to-IDLE interrupt, so we only need HAL_UARTEx_RxEventCallback.
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef* huart, uint16_t Size) {
-    if (huart->Instance == UART5) {
-        gpsUartOnRxEvent(&gpsUart, Size);
+    (void)Size;
+
+    if (huart == &huart5) {
+        gps_on_rx_event();
     }
 }
 /* USER CODE END 0 */
@@ -115,10 +108,6 @@ int main(void) {
     MX_USB_OTG_FS_PCD_Init();
     MX_UART5_Init();
     /* USER CODE BEGIN 2 */
-    rbInit(&gpsRb, gpsRbStorage, sizeof(gpsRbStorage));
-    gpsUartInit(&gpsUart, &huart5, &gpsRb, gpsDmaBuf, sizeof(gpsDmaBuf));
-    gpsParserInit(&gpsFix);
-    gpsUartStartRx(&gpsUart);
 
     // comment out if not switching gps baud!
     // save = 0x01 (temp change, i.e. resets back to previously set baud rate with next power cycle).
@@ -130,11 +119,7 @@ int main(void) {
     /* Infinite loop */
     /* USER CODE BEGIN WHILE */
     while (1) {
-        uint8_t tempBuf[128];
-        size_t len = gpsUartRead(&gpsUart, tempBuf, sizeof(tempBuf));
-        if (len > 0) {
-            gpsParserFeed(&gpsFix, tempBuf, len, HAL_GetTick());
-        }
+        gps_process();
     }
     /* USER CODE END WHILE */
 

@@ -23,13 +23,13 @@
  * ----------------------- */
 typedef struct {
     uint8_t* buffer;
-    size_t buffer_size;                // capacity of buffer in bytes (for embedded systems, apperantly making this a power of 2 is
-                                       // more efficent)
-    size_t mask;                       // mask = size - 1 (used later for the wrap around calculatoins). Storing it in the struct is faster
-    volatile size_t head;              // write to head
-    volatile size_t tail;              // read from tail
-    volatile uint32_t overflow_count;  // counts bytes dropped due to full buffer
-    bool buffer_init;                  // verify that the buffer has been initalized
+    size_t buffer_size;              // capacity of buffer in bytes (for embedded systems, apperantly making this a power of 2 is
+                                     // more efficent)
+    size_t mask;                     // mask = size - 1 (used later for the wrap around calculatoins). Storing it in the struct is faster
+    volatile size_t head;            // write to head
+    volatile size_t tail;            // read from tail
+    volatile size_t overflow_count;  // counts bytes dropped due to full buffer
+    bool buffer_init;                // verify that the buffer has been initalized
 } RingBuffer;
 
 /* -----------------------
@@ -38,7 +38,7 @@ typedef struct {
 // Initialize ring buffer with provided storageAddress + size
 bool rb_init(RingBuffer* rb, uint8_t* storage_address, size_t size);
 
-// returns amount of bits available in the buffer
+// returns amount of bytes available in the buffer
 size_t rb_available(const RingBuffer* rb);
 
 // returns amount of bytes unread sitting in the buffer

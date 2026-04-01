@@ -8,42 +8,36 @@
 #ifndef INC_GPS_INTERFACE_H_
 #define INC_GPS_INTERFACE_H_
 
-#pragma once
 #include <stdbool.h>
 #include <stdint.h>
 
-/* -----------------------
- * Structs
- * ----------------------- */
-typedef struct {
-    double latDeg;
-    double lonDeg;
-    float speedMps;
-    float altMeters;
-    uint8_t satellitesUsed;
-    bool valid;
-    size_t lastUpdateMs;
-} GpsFix;
-
-typedef struct {
-    size_t total_bytes_received;
-    size_t sentences_seen;
-    size_t checksum_failure;
-    size_t valid_sentences;
-    size_t line_overflow_drops;    // sentence too long / buffer overflow
-    size_t ring_buffer_overflows;  // FIFO full, data lost
-    size_t parsed_gga_count;
-    size_t parsed_rmc_count;
-    size_t ignored_sentences;
-    size_t max_sentence_length_seen;
-} ParserStats;  // for the sake of debugging, can be removed later if needed
+#include "gps_parser.h"
+#include "gps_uart.h"
 
 /* -----------------------
  * Functions
  * ----------------------- */
-void gpsInit(void);
-void gpsProcess(void);  // call periodically
-bool gpsGetFix(GpsFix* out);
-bool gpsHasFix(void);
+// initalize buffers and all other stuff needed
+void gps_init(UART_HandleTypeDef* huart, RingBuffer* rb, uint8_t* dma_buf);
+
+// start dma and uart
+bool gps_start();
+
+// callback helper
+void gps_on_rx_event();
+
+// parse data from the ring buffer
+void gps_process();  // call periodically
+
+// check if the gps has a valid fix
+// (temporary implentation for debugging: and then turn on a light on the stm32)
+bool gps_has_fix(void);
+
+// get the most recent fix
+// (temporary implentation for debugging: print stuff to console)
+bool get_fix(const GpsFix* current, GpsFix* copy);
+
+// get stats for debugging purposes
+void get_stats(const GpsStats* current, GpsStats* copy);
 
 #endif

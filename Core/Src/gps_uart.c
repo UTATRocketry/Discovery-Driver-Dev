@@ -9,8 +9,6 @@
 
 #include "gps_uart.h"
 
-#include <string.h>
-
 /* -----------------------
  *  Internal Helper Functions
  * ----------------------- */
@@ -19,16 +17,11 @@
 //     return (gpsUart && gpsUart->rb) ? gpsUart->rb->overflowCount : 0;
 // }
 
-// calculate distance between two indices in a circular buffer
-static size_t mod_distance(size_t a, size_t b, size_t m) {
-    if (a >= b) return a - b;
-    return (m - b) + a;
-}
-
 // Harvest bytes from dmaBuffer[oldPos..newPos) into ring buffer, with wrap handling
-static void data_into_ring(ParserStats* debugger, GpsUartHandler* gps_uart, size_t new_pos) {
-    // All AI generated, not modified
-    if (!gps_uart || !gps_uart->rb || !gps_uart->dma_buffer || gps_uart->dma_buffer_length == 0)
+static void data_into_ring(GpsStats* debugger, GpsUartHandler* gps_uart, size_t new_pos) {
+    // All AI generated, barely modified
+    if (!gps_uart || !gps_uart->rb || !gps_uart->dma_buffer ||
+        !debugger || gps_uart->dma_buffer_length == 0)
         return;
 
     size_t len = gps_uart->dma_buffer_length;
@@ -105,10 +98,12 @@ static size_t get_dma_write_position(const GpsUartHandler* gps_uart) {
  * ----------------------- */
 // initalize gpsUart struct (must do before everything else)
 bool gps_uart_init(GpsUartHandler* gps_uart, UART_HandleTypeDef* uart_address_pin, RingBuffer* rb,
-                   uint8_t* dma_buffer, size_t dma_buffer_length) {
+                   uint8_t* dma_buffer) {
     // basic defensive checks
-    if (!gps_uart || !uart_address_pin || !rb || !dma_buffer) return false;
-    if (dma_buffer_length < 2) return false;
+    if (!gps_uart || !uart_address_pin || !rb || !dma_buffer)
+        return false;
+    if (DMA_LEN < 2)
+        return false;
 
     gps_uart->huart = uart_address_pin;
 
@@ -119,7 +114,7 @@ bool gps_uart_init(GpsUartHandler* gps_uart, UART_HandleTypeDef* uart_address_pi
         return false;
 
     gps_uart->dma_buffer = dma_buffer;
-    gps_uart->dma_buffer_length = dma_buffer_length;
+    gps_uart->dma_buffer_length = DMA_LEN;  // where dma_len is a constant defined in header
     gps_uart->dma_last_index = 0;
     gps_uart->rb_drop_bytes = 0;
 
@@ -154,7 +149,7 @@ HAL_StatusTypeDef gps_uart_start_rx(GpsUartHandler* gps_uart) {
 }
 
 // if data recieved, take from dma buffer, put into the ring buffer
-void gps_uart_on_rx_event(ParserStats* debugger, GpsUartHandler* gps_uart) {
+void gps_uart_on_rx_event(GpsStats* debugger, GpsUartHandler* gps_uart) {
     if (!gps_uart || !gps_uart->huart)
         return;
 
