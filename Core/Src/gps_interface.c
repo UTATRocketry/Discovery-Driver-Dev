@@ -29,7 +29,7 @@ void gps_init(UART_HandleTypeDef* huart, RingBuffer* rb, uint8_t* rb_buf, uint8_
         return;
     }
 
-    rb_init(&rb, rb_buf, sizeof(rb_buf));
+    rb_init(rb, rb_buf, sizeof(rb_buf));
 
     gps_parser_init(&g_fix, &g_stats);
 
@@ -83,7 +83,7 @@ bool gps_has_fix(void) {
 }
 
 // getter for latest fix
-bool gps_get_fix(GpsFix* out) {
+bool get_fix(GpsFix* out) {
     if (!g_initialized || !out)
         return false;
 
@@ -92,7 +92,7 @@ bool gps_get_fix(GpsFix* out) {
 }
 
 // getter for stats
-void gps_get_stats(GpsStats* stats) {
+void get_stats(GpsStats* stats) {
     if (!g_initialized || !stats)
         return;
 

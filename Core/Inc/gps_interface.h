@@ -31,13 +31,13 @@ void gps_process();  // call periodically
 
 // check if the gps has a valid fix
 // (temporary implentation for debugging: and then turn on a light on the stm32)
-bool gps_has_fix(void);
+bool gps_has_fix();
 
 // get the most recent fix
 // (temporary implentation for debugging: print stuff to console)
-bool get_fix(const GpsFix* current, GpsFix* copy);
+bool get_fix(GpsFix* copy);
 
 // get stats for debugging purposes
-void get_stats(const GpsStats* current, GpsStats* copy);
+void get_stats(GpsStats* copy);
 
 #endif

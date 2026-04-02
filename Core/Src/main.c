@@ -56,6 +56,9 @@ static RingBuffer gps_rb;
 static uint8_t gps_rb_storage[GPS_RB_LEN];
 static uint8_t gps_dma_buf[DMA_LEN];
 
+volatile uint32_t gps_rx_events = 0;
+volatile uint32_t gps_rx_bytes = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -68,15 +71,18 @@ static void MX_UART5_Init(void);
 /* USER CODE BEGIN PFP */
 void SystemClock_Config(void);
 static HAL_StatusTypeDef gpsSwitchBaud(UART_HandleTypeDef* huart_gps, uint32_t newBaud, uint8_t save);
+static void print_gps_fix();
+static void console_print(const char* s);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 // We use Receive-to-IDLE interrupt, so we only need HAL_UARTEx_RxEventCallback.
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef* huart, uint16_t Size) {
-    (void)Size;
-
     if (huart == &huart5) {
+        gps_rx_events++;
+        gps_rx_bytes += Size;
+    	HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
         gps_on_rx_event();
     }
 }
@@ -116,29 +122,42 @@ int main(void)
   MX_USB_OTG_FS_PCD_Init();
   MX_UART5_Init();
   /* USER CODE BEGIN 2 */
+  console_print("testing console printing\n\r");
     // init GPS driver first, while UART5 is still at the module default baud (38400)
-
     gps_init(&huart5, &gps_rb, gps_rb_storage, gps_dma_buf);
 
-    if (!gps_start())
-        Error_Handler();
+
+
 
     // comment out if not switching gps baud!
     // save = 0x01 (temp change, i.e. resets back to previously set baud rate with next power cycle).
     // save = 0x07 (permenant change, i.e. must call this function again to change baud rate)
-    if (gpsSwitchBaud(&huart5, (uint32_t)115200, (uint8_t)0x01) != HAL_OK) {
+    if (gpsSwitchBaud(&huart5, (uint32_t)38400, (uint8_t)0x01) != HAL_OK) {
+    	console_print("Baud switch error :( \n\r");
         Error_Handler();
     }
+//    else { // enable this when attempting to implement a permenant change
+//    	// pause here and blink to show that the change has been made, stop program, reset L4 baudrate to match new
+//    	// gps baud rate
+//    	while (1) {
+//			HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);  // use a DIFFERENT LED than Error_Handler
+//			HAL_Delay(500);  // slow blink
+//    	}
+//    }
 
     // after baud switch, re-arm RX
-    if (!gps_start())
+    if (!gps_start()){
+    	console_print("gps uart start error \n\r");
         Error_Handler();
-
+    }
+    console_print("gps uart started! \r\n");
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
     uint32_t last_print = 0;
+    console_print("about to enter while loop \n\r");
+    char buf[64];
 
     while (1) {
         gps_process();
@@ -146,6 +165,8 @@ int main(void)
 
         if ((HAL_GetTick() - last_print) >= 1000) {  // 1 Hz print
             last_print = HAL_GetTick();
+            snprintf(buf, sizeof(buf), "events:%lu bytes:%lu\r\n", gps_rx_events, gps_rx_bytes); // for debugging purpose
+            console_print(buf);
             print_gps_fix();
         }
     }
@@ -423,15 +444,15 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 static void console_print(const char* s) {
     if (!s) return;
-    HAL_UART_Transmit(&hlpuart1, (uint8_t*)s, strlen(s), 200);
+    HAL_UART_Transmit(&hlpuart1, (uint8_t*)s, strlen(s), 2000);
 }
 
-static void print_gps_fix(void) {
+static void print_gps_fix() {
     GpsFix fix;
     char msg[160];
 
     // try to get latest fix
-    if (!gps_get_fix(&fix)) {
+    if (!get_fix(&fix)) {
         snprintf(msg, sizeof(msg), "GPS: no valid fix\r\n");
         console_print(msg);
         return;
@@ -472,14 +493,18 @@ static bool ubx_wait_ack(UART_HandleTypeDef* huart, uint8_t cls, uint8_t id, uin
     // - UBX-ACK-ACK (accepted), UBX-ACK-NAK (rejected)
     uint32_t start = HAL_GetTick();
     uint8_t b;
-    // Simple state machine for UBX-ACK-ACK: B5 62 05 01 02 00 cls id CK_A CK_B
+    // Simple state machine for UBX-ACK-ACK: B5 62 05 01 02 00 is id CK_A CK_B
     const uint8_t preamble[] = {0xB5, 0x62, 0x05, 0x01, 0x02, 0x00};
     uint8_t idx = 0;
     uint8_t payload[2];
     uint8_t ck_a, ck_b;
 
+    __HAL_UART_CLEAR_OREFLAG(huart);
+
     while ((HAL_GetTick() - start) < timeout_ms) {
-        if (HAL_UART_Receive(huart, &b, 1, 10) != HAL_OK) continue;
+        if (HAL_UART_Receive(huart, &b, 1, 10) != HAL_OK) {
+        	continue;
+        }
 
         // match preamble
         if (idx < sizeof(preamble)) {
@@ -520,7 +545,6 @@ static bool ubx_wait_ack(UART_HandleTypeDef* huart, uint8_t cls, uint8_t id, uin
             idx = 0;
             continue;
         }  // corrupted ACK
-
         // check ACK is for our message
         return (payload[0] == cls && payload[1] == id);
     }
@@ -529,6 +553,7 @@ static bool ubx_wait_ack(UART_HandleTypeDef* huart, uint8_t cls, uint8_t id, uin
 
 // Send UBX-CFG-VALSET to set CFG-UART1-BAUDRATE (currently set up to be temporary change), then switch STM32 UART5 to match.
 static HAL_StatusTypeDef gpsSwitchBaud(UART_HandleTypeDef* huart_gps, uint32_t newBaud, uint8_t save) {
+	console_print("gpsSwitchBaud debugging: entering gpsSwitchBaud\r\n");
     /* To change the baud rate of the neom9n, must send a complete UBX packet with required details
      * as defied by (u-blox, pg. 89-91) */
 
@@ -578,15 +603,18 @@ static HAL_StatusTypeDef gpsSwitchBaud(UART_HandleTypeDef* huart_gps, uint32_t n
 
     // Send at CURRENT baud (must match current GPS baud - before changes)
     if (HAL_UART_Transmit(huart_gps, pkt, pkt_length, 200) != HAL_OK) {
+    	console_print("gpsSwitchBaud debugging: HAL_UART_Transmit error\n\r");
         return HAL_ERROR;
     }
 
     // check that no data corruption occured and the checksum was validated by the gps
     // Wait for confirmation from GPS at OLD baud
-    if (!ubx_wait_ack(huart_gps, 0x06, 0x8A, 300)) {
-        return HAL_ERROR;  // GPS didn’t accept it, or no ACK seen
-    }
+//    if (!ubx_wait_ack(huart_gps, 0x06, 0x8A, 300)) {
+//    	console_print("gpsSwitchBaud debugging: error 2\r\n");
+//        return HAL_ERROR;  // GPS didn’t accept it, or no ACK seen
+//    }
 
+    console_print("gpsSwitchBaud debugging: ack worked!\r\n");
     // Give GPS time to switch UART baud
     // neom9n integration module reccomends at least 100 ms
     // pg 26 has good info on why change baud rate and how
@@ -602,10 +630,23 @@ static HAL_StatusTypeDef gpsSwitchBaud(UART_HandleTypeDef* huart_gps, uint32_t n
         return HAL_ERROR;
     }
 
-    // Restart GPS RX-to-idle
-    if (!gps_start()) {
-        return HAL_ERROR;
-    }
+//    // idk what this does but chatgbt really wanted it
+//    if (HAL_UARTEx_SetTxFifoThreshold(huart_gps, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK) {
+//        return HAL_ERROR;
+//    }
+//
+//    if (HAL_UARTEx_SetRxFifoThreshold(huart_gps, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK) {
+//        return HAL_ERROR;
+//    }
+//
+//    if (HAL_UARTEx_DisableFifoMode(huart_gps) != HAL_OK) {
+//        return HAL_ERROR;
+//    }
+    // this isn't needed for a oneshot change
+//    // Restart GPS RX-to-idle
+//    if (!gps_start()) {
+//        return HAL_ERROR;
+//    }
 
     return HAL_OK;
 }
@@ -621,7 +662,9 @@ void Error_Handler(void)
   /* USER CODE BEGIN Error_Handler_Debug */
     /* User can add his own implementation to report the HAL error return state */
     __disable_irq();
-    while (1) {
+    while (1) { // blink an led if in this function
+        HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
+        HAL_Delay(200);  // fast blink = error
     }
   /* USER CODE END Error_Handler_Debug */
 }
