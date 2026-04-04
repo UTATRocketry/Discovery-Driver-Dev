@@ -24,11 +24,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "constants.h"
 #include "gps_parser.h"  //contains ParserStats struct
 #include "ring_buffer.h"
 #include "stm32l4xx_hal.h"  // needed for UART
-
-#define DMA_LEN 256  // using 256 bytes as upper bound for any nmea string (CHECK THIS CALCULATION)
 
 /* -----------------------
  * Structs
