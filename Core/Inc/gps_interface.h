@@ -18,13 +18,14 @@
  * Functions
  * ----------------------- */
 // initalize buffers and all other stuff needed
-void gps_init(UART_HandleTypeDef* huart, RingBuffer* rb, uint8_t* rb_buf, uint8_t* dma_buf);
+void gps_init(UART_HandleTypeDef* huart, RingBuffer* rb, uint8_t* rb_buf,
+              uint8_t* dma_buf);
 
 // start dma and uart
 bool gps_start();
 
 // callback helper
-void gps_on_rx_event();
+void gps_on_rx_event(uint16_t size);
 
 // parse data from the ring buffer
 void gps_process();  // call periodically

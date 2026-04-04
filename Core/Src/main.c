@@ -64,13 +64,15 @@ static uint8_t gps_dma_buf[DMA_LEN];        // dma ring buffer
 volatile uint32_t gps_rx_events = 0;
 volatile uint32_t gps_rx_bytes = 0;
 volatile size_t time_delta = 0;
-
 volatile uint32_t max_gps_rx_bytes = 0;
 volatile uint32_t max_time_delta = 0;
 volatile uint32_t gps_rx_event_type = 0;
 volatile uint32_t gps_idle_events = 0;
 volatile uint32_t gps_ht_events = 0;
 volatile uint32_t gps_tc_events = 0;
+static uint8_t dbg_chunk[2048];
+static uint16_t dbg_chunk_len = 0;
+static volatile uint8_t dbg_chunk_ready = 0;
 
 /* USER CODE END PV */
 
@@ -92,10 +94,6 @@ static void console_print_bytes(const uint8_t* buf, uint16_t len);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-static uint8_t dbg_chunk[2048];
-static uint16_t dbg_chunk_len = 0;
-static volatile uint8_t dbg_chunk_ready = 0;
-
 // We use Receive-to-IDLE interrupt, so we only need HAL_UARTEx_RxEventCallback.
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef* huart, uint16_t Size) {
     static uint16_t old_pos = 0;
@@ -174,7 +172,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef* huart, uint16_t Size) {
         HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
         ////////////////////////////////////////////////////////////////////////
 
-        // gps_on_rx_event();
+        gps_on_rx_event(Size);
     }
 }
 /* USER CODE END 0 */
@@ -247,22 +245,8 @@ int main(void) {
     char buf[64];  // for the sake of debugging, delete later
 
     while (1) {
-        if (dbg_chunk_ready) {
-            dbg_chunk_ready = 0;
-
-            char header[64];
-            snprintf(header, sizeof(header),
-                     "\r\n[DBG] new_bytes=%u, printed_bytes=%u\r\n",
-                     gps_rx_bytes, dbg_chunk_len);
-
-            console_print(header);
-
-            console_print("[DATA] ");
-            console_print_bytes(dbg_chunk, dbg_chunk_len);
-            console_print("\r\n");
-        }
+        gps_process();
         if ((HAL_GetTick() - last_print) >= 1000) {  // 1 Hz print
-            // gps_process();
 
             last_print = HAL_GetTick();
             snprintf(buf, sizeof(buf), "events:%lu bytes:%lu\r\n",
