@@ -4,7 +4,7 @@
  *  Created on: Mar 3, 2026
  *      Author: prith
  *
- *  Status: Done, needs to be tested
+ *  Status: Functional, GpsStats to be implemented properly
  *
  *  Purpose:
  *  	- turn uart bytes into full nmea sentences
