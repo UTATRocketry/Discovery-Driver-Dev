@@ -1,14 +1,14 @@
 /*
- * RAB.c
- *
- *  Created on: Mar 8, 2026
- *      Author: sebso
+ * File Name: RAB.c
+ * Author: Sebastian Southworth
+ * Description: RAB's firmware for the RAB arming protocol
+ * Date: 2026-3-9
  */
 
 #include "RAB.h"
 
 /* USART2 handle defined in main.c */
-extern UART_HandleTypeDef huart3;  /* USART2 — link to FMC (L4) */
+extern UART_HandleTypeDef huart2;  /* USART2 — link to FMC (L4) */
 
 /* This RAB's address, set once at startup by reading PA6 */
 static uint8_t my_addr = 0U;
@@ -38,7 +38,7 @@ static HAL_StatusTypeDef send_response(uint8_t status_byte, uint8_t seq)
     tx_buf[PROTO_IDX_SEQ]    = seq;
     tx_buf[PROTO_IDX_CRC]    = RAB_Proto_ComputeCRC(tx_buf, PROTO_FRAME_LEN - 1U);
 
-    return HAL_UART_Transmit(&huart3,
+    return HAL_UART_Transmit(&huart2,
                              tx_buf,
                              PROTO_FRAME_LEN,
                              PROTO_TX_TIMEOUT_MS);
@@ -72,19 +72,19 @@ HAL_StatusTypeDef RAB_Proto_Poll(void)
      * If the FMC sent data while the RAB was busy, the hardware locked up.
      * Clearing these flags forces the hardware to start listening again.
      */
-    __HAL_UART_CLEAR_OREFLAG(&huart3);
-    __HAL_UART_CLEAR_NEFLAG(&huart3);
-    __HAL_UART_CLEAR_FEFLAG(&huart3);
+    __HAL_UART_CLEAR_OREFLAG(&huart2);
+    __HAL_UART_CLEAR_NEFLAG(&huart2);
+    __HAL_UART_CLEAR_FEFLAG(&huart2);
 
     /* Safely reset the HAL internal state machine if it got stuck */
-    if (huart3.ErrorCode != HAL_UART_ERROR_NONE)
+    if (huart2.ErrorCode != HAL_UART_ERROR_NONE)
     {
-        huart3.ErrorCode = HAL_UART_ERROR_NONE;
-        huart3.RxState = HAL_UART_STATE_READY;
+        huart2.ErrorCode = HAL_UART_ERROR_NONE;
+        huart2.RxState = HAL_UART_STATE_READY;
     }
 
     /* 1. Wait for SYNC byte (one byte at a time for alignment) */
-    hal_status = HAL_UART_Receive(&huart3, &sync, 1U, PROTO_RX_TIMEOUT_MS);
+    hal_status = HAL_UART_Receive(&huart2, &sync, 1U, PROTO_RX_TIMEOUT_MS);
     if (hal_status != HAL_OK)
     {
         return hal_status;  /* HAL_TIMEOUT = idle, no traffic */
@@ -96,7 +96,7 @@ HAL_StatusTypeDef RAB_Proto_Poll(void)
 
     /* 2. SYNC matched — receive remaining 4 bytes */
     rx_buf[PROTO_IDX_SYNC] = PROTO_SYNC;
-    hal_status = HAL_UART_Receive(&huart3,
+    hal_status = HAL_UART_Receive(&huart2,
                                   &rx_buf[PROTO_IDX_ADDR],
                                   PROTO_FRAME_LEN - 1U,
                                   PROTO_RX_TIMEOUT_MS);
@@ -142,5 +142,3 @@ HAL_StatusTypeDef RAB_Proto_Poll(void)
 
     return HAL_OK;
 }
-
-
