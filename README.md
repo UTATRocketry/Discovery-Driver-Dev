@@ -2,7 +2,7 @@
 
 ## Overview
 
-This workspace contains three STM32 embedded firmware projects implementing a command-and-control system for remotely arming and disarming two independent Remote Arming Boards (RABs) from a central Flight Management Computer (FMC).
+This workspace contains three STM32 embedded firmware projects implementing a command-and-control system for remotely arming and disarming two independent Remote Arming Boards (RABs) from a central Flight Management Computer (FMC). For testing purposes, an L4 was used to emulate one of the RAB's. When implementing, you should treat that board as a second G0.
 
 ```
 FMC (Controller)
@@ -111,6 +111,8 @@ The two RAB firmware projects are **separate STM32CubeIDE projects** — there i
 | RAB A | `RAB V.0.3`     | STM32G0B1RE | USART2 (PA2/PA3) | 209,700 baud, 7-bit |
 | RAB B | `RAB B V.0.3`   | STM32L476RG | USART3 (PD8/PD9) | 115,200 baud, 8-bit |
 
+(Note: The 209,700 baud, 7-bit seems suspicious but that's what my code had, and it worked)
+
 ### Key Code Differences Between RAB Projects
 
 #### 1. HAL include (`RAB.h`)
@@ -124,6 +126,7 @@ The two RAB firmware projects are **separate STM32CubeIDE projects** — there i
 ```c
 #include "stm32l4xx_hal.h"
 ```
+(Note: I included the L4 library because I simulated a RAB with an L4. When implementing, you should ignore this)
 
 #### 2. UART handle (`RAB.c`)
 
