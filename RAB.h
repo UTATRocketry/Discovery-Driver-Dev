@@ -1,7 +1,14 @@
+/*
+ * File Name: RAB.h
+ * Author: Sebastian Southworth
+ * Description: Header file for RAB's arming protocol
+ * Date: 2026-3-9
+ */
+
 #ifndef INC_RAB_H_
 #define INC_RAB_H_
 
-#include "stm32l4xx_hal.h"
+#include "stm32g0xx_hal.h"
 #include <stdint.h>
 
 /* ========================================================================= */
