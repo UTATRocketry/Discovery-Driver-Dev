@@ -1,3 +1,10 @@
+/*
+ * File Name: FMC.h
+ * Author: Sebastian Southworth
+ * Description: FMC's header file for RAB's arming protocol
+ * Date: 2026-3-9
+ */
+
 #ifndef INC_FMC_H_
 #define INC_FMC_H_
 
