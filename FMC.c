@@ -1,3 +1,10 @@
+/*
+ * File Name: FMC.c
+ * Author: Sebastian Southworth
+ * Description: FMC firmware for RAB's arming protocol
+ * Date: 2026-3-9
+ */
+
 #include "FMC.h"
 #include <stdio.h>
 #include <string.h>
