@@ -1,7 +1,7 @@
 /*
  * File Name: RAB.h
  * Author: Sebastian Southworth
- * Description: Header file for RAB's arming protocol
+ * Description: RAB's header file for the RAB arming protocol
  * Date: 2026-3-9
  */
 
