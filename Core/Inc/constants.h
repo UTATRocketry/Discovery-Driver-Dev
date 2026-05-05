@@ -25,7 +25,12 @@
 
 // VALUES THAT CAN BE CHANGED //
 #define GPS_TARGET_BAUD 115200u
-#define GPS_FIX_RATE_MS 200u                          // measurement period -> 200 ms = 5 Hz
-#define UBX_LAYERS (UBX_LAYER_RAM | UBX_LAYER_FLASH)  // change depending on desired save mode (i.e. just ram or ram AND flash)
+#define GPS_FIX_RATE_MS 200u  // measurement period -> 200 ms = 5 Hz
+
+/* Save mode:
+ *   UBX_LAYER_RAM                         = temporary until reset/power loss
+ *   UBX_LAYER_RAM | UBX_LAYER_FLASH       = apply now and save permanently
+ */
+#define UBX_LAYERS (UBX_LAYER_RAM | UBX_LAYER_FLASH)
 
 #endif /* INC_CONSTANTS_H_ */
