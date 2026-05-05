@@ -257,26 +257,6 @@ That function only tracks debug counters and toggles LD2. It is not required for
 
 ---
 
-## Understanding `Size`
-
-In `HAL_UARTEx_RxEventCallback()`, `Size` is the current write position inside the circular DMA buffer.
-
-It is not directly the number of new bytes.
-
-The driver tracks the previous DMA position and computes the number of newly received bytes:
-
-```c
-if (Size >= old_pos) {
-    new_bytes = Size - old_pos;
-} else {
-    new_bytes = DMA_LEN - old_pos + Size;
-}
-```
-
-This handles DMA wraparound.
-
----
-
 ## Debug Counters
 
 ### UART/DMA Counters
