@@ -41,4 +41,13 @@ bool get_fix(GpsFix* copy);
 // get stats for debugging purposes
 void get_stats(GpsStats* copy);
 
+// print to console for debugging purposes
+void console_print(const char* s);
+
+// get dropped bytes
+size_t get_dropped_bytes();
+
+// getter function for debugging
+size_t get_dma_overrun_count();
+
 #endif

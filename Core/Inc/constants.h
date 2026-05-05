@@ -10,9 +10,22 @@
 #ifndef INC_CONSTANTS_H_
 #define INC_CONSTANTS_H_
 
-#define GPS_RB_LEN 2048
-#define DMA_LEN 256
-#define NMEA_MAX_LEN 256  // using 256 bytes as upper bound for max characters in gga/rmc nmea string
-#define GPS_PROCESS_CHUNK 64 // used in gps_procesS()
+#define GPS_RB_LEN 256
+#define DMA_LEN 128
+#define NMEA_MAX_LEN 128      // using 128 bytes as upper bound for max characters in gga nmea string (actual value is about 76 bytes)
+#define GPS_PROCESS_CHUNK 64  // used in gps_process()
+
+/* ----------------------------------------------
+ * Target gps configuration —   EDIT TO MODIFY GPS
+ * ---------------------------------------------- */
+// these changes will effect file gps_config
+/* CFG-VALSET layer bitmask (pg. 89, payload byte 1) */
+#define UBX_LAYER_RAM 0x01u    // DO NOT TOUCH THESE VALUES
+#define UBX_LAYER_FLASH 0x04u  // DO NOT TOUCH THESE VALUES
+
+// VALUES THAT CAN BE CHANGED //
+#define GPS_TARGET_BAUD 115200u
+#define GPS_FIX_RATE_MS 200u                          // measurement period -> 200 ms = 5 Hz
+#define UBX_LAYERS (UBX_LAYER_RAM | UBX_LAYER_FLASH)  // change depending on desired save mode (i.e. just ram or ram AND flash)
 
 #endif /* INC_CONSTANTS_H_ */

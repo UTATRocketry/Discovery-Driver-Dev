@@ -39,14 +39,18 @@ static void data_into_ring(GpsStats* debugger, GpsUartHandler* gps_uart,
     // callback fired, but index did not change.
     // Safest interpretation here is a full-buffer lap / overrun.
     if (new_pos == old_pos) {
-        gps_uart->dma_overrun_count++;
-
-        // We know at least one full buffer worth of data was not safely distinguishable.
-        // Count it as dropped.
-        gps_uart->rb_drop_bytes += len;
-
-        // Advance stays the same because DMA wrapped back to same index.
-        gps_uart->dma_last_index = new_pos;
+        // at a 5Hz and 115200 baud, a full dma buffer lap between callbacks is not possible
+        // thus, this triggering means there's been no new data, not that there's been a lap
+        // however, if data rate is ever made slower, uncomment the below stuff as it will work
+        // as expected
+        //        gps_uart->dma_overrun_count++;
+        //
+        //        // We know at least one full buffer worth of data was not safely distinguishable.
+        //        // Count it as dropped.
+        //        gps_uart->rb_drop_bytes += len;
+        //
+        //        // Advance stays the same because DMA wrapped back to same index.
+        //        gps_uart->dma_last_index = new_pos;
         return;
     }
 

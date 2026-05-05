@@ -29,6 +29,7 @@
 #include <string.h>
 
 #include "constants.h"
+#include "gps_config.h"
 #include "gps_interface.h"
 #include "ring_buffer.h"
 
@@ -56,24 +57,29 @@ PCD_HandleTypeDef hpcd_USB_OTG_FS;
 
 /* USER CODE BEGIN PV */
 
-// ---- gps data storage ---- //
-static RingBuffer gps_rb;                   // ring buffer struct
-static uint8_t gps_rb_storage[GPS_RB_LEN];  // create space for bigger ring buffer
-static uint8_t gps_dma_buf[DMA_LEN];        // dma ring buffer
+/* GPS data buffers.
+ * Sizes are defined in constants.h.
+ * DMA_LEN = 128 bytes:  holds one full GGA sentence with margin.
+ * GPS_RB_LEN = 256 bytes:  holds about 3 sentences of backlog so the
+ *              parser has time to drain the buffer between fixes. */
+static RingBuffer gps_rb;
+static uint8_t gps_rb_storage[GPS_RB_LEN];
+static uint8_t gps_dma_buf[DMA_LEN];
 
-// ---- variables for debugging ---- //
-// debugging GPS uart callback, can remove later
-volatile uint32_t gps_rx_events = 0;
-volatile uint32_t gps_rx_bytes = 0;
-volatile size_t time_delta = 0;
-volatile uint32_t max_gps_rx_bytes = 0;
-volatile uint32_t max_time_delta = 0;
+/* Debug counters -- track DMA callback activity.
+ * These are volatile because they are written inside an interrupt (the DMA
+ * callback) and read in the main loop. Remove once testing is done. */
+volatile uint32_t gps_rx_events = 0;     // total number of DMA callbacks fired
+volatile uint32_t gps_rx_bytes = 0;      // bytes received in the most recent callback
+volatile uint32_t max_gps_rx_bytes = 0;  // track bytes recieved per callback (should be around ~75 with only GGA enabled)
+
+volatile size_t time_delta = 0;        // time between callbacks
+volatile uint32_t max_time_delta = 0;  // track time between callback (should be around ~200ms at 5Hz)
+
 volatile uint32_t gps_rx_event_type = 0;
-volatile uint32_t gps_idle_events = 0;
-volatile uint32_t gps_ht_events = 0;
-volatile uint32_t gps_tc_events = 0;
-static uint8_t dbg_chunk[2048];
-static volatile uint8_t dbg_chunk_ready = 0;
+volatile uint32_t gps_idle_events = 0;  // callbacks triggered by UART idle line
+volatile uint32_t gps_ht_events = 0;    // callbacks triggered by DMA half-transfer
+volatile uint32_t gps_tc_events = 0;    // callbacks triggered by DMA transfer-complete
 
 /* USER CODE END PV */
 
@@ -85,26 +91,29 @@ static void MX_LPUART1_UART_Init(void);
 static void MX_USB_OTG_FS_PCD_Init(void);
 static void MX_UART5_Init(void);
 /* USER CODE BEGIN PFP */
-void SystemClock_Config(void);
-static HAL_StatusTypeDef gps_switch_baud(UART_HandleTypeDef* huart_gps,
-                                         uint32_t newBaud, uint8_t save_mode);
-static void print_gps_fix();
-static void console_print(const char* s);
-// static void console_print_bytes(const uint8_t *buf, uint16_t len);
+static void print_gps_fix(void);
+static void print_gps_stats(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-// Update signature to accept the handle and the current DMA position
+
+/* -----------------------
+ * debug_uart_callback
+ * called from HAL_UARTEx_RxEventCallback every time the DMA fires
+ * (idle line, half-transfer, or transfer-complete).
+ * Tracks event counts and byte counts for debugging.
+ *
+ * This entire function can be removed once the driver is confirmed
+ * working.
+ * ----------------------- */
 void debug_uart_callback(UART_HandleTypeDef* huart, uint16_t Size) {
     static uint16_t old_pos = 0;
     uint16_t new_bytes = 0;
     static uint32_t last_callback_time = 0;
 
-    // 1. Identify the event type
+    /* figure out which type of event triggered this callback */
     HAL_UART_RxEventTypeTypeDef evt = HAL_UARTEx_GetRxEventType(huart);
-    gps_rx_event_type = (uint32_t)evt;
-
     if (evt == HAL_UART_RXEVENT_IDLE)
         gps_idle_events++;
     else if (evt == HAL_UART_RXEVENT_HT)
@@ -112,7 +121,7 @@ void debug_uart_callback(UART_HandleTypeDef* huart, uint16_t Size) {
     else if (evt == HAL_UART_RXEVENT_TC)
         gps_tc_events++;
 
-    // 2. Wrap-around logic for Circular DMA
+    /* compute bytes received since last callback, accounting for DMA wrap */
     if (Size >= old_pos) {
         new_bytes = Size - old_pos;
     } else {
@@ -122,32 +131,7 @@ void debug_uart_callback(UART_HandleTypeDef* huart, uint16_t Size) {
     gps_rx_bytes = new_bytes;
     gps_rx_events++;
 
-    // 3. Debug Snapshot Logic
-    uint16_t sample_len =
-        (new_bytes > sizeof(dbg_chunk) - 1) ? (sizeof(dbg_chunk) - 1) : new_bytes;
-
-    if (sample_len > 0) {
-        if (Size >= old_pos) {
-            // Linear copy
-            memcpy(dbg_chunk, &gps_dma_buf[old_pos], sample_len);
-        } else {
-            // Wrapped copy: part from end of buffer, part from start
-            uint16_t first_part = DMA_LEN - old_pos;
-            if (first_part > sample_len)
-                first_part = sample_len;
-
-            memcpy(dbg_chunk, &gps_dma_buf[old_pos], first_part);
-
-            if (sample_len > first_part) {
-                memcpy(&dbg_chunk[first_part], &gps_dma_buf[0],
-                       sample_len - first_part);
-            }
-        }
-        dbg_chunk[sample_len] = '\0';
-        dbg_chunk_ready = 1;
-    }
-
-    // 4. Timing and Maximums
+    /* Timing and Maximums */
     uint32_t current_time = HAL_GetTick();
     time_delta = current_time - last_callback_time;
     last_callback_time = current_time;
@@ -157,15 +141,22 @@ void debug_uart_callback(UART_HandleTypeDef* huart, uint16_t Size) {
     if (time_delta > max_time_delta && gps_rx_events > 1)
         max_time_delta = time_delta;
 
-    // 5. Update position for next interrupt
+    // Update position for next interrupt
     old_pos = Size;
     if (old_pos >= DMA_LEN)
         old_pos = 0;
 
+    /* toggle LED2 on every callback so we can see DMA is alive */
     HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
 }
 
-// We use Receive-to-IDLE interrupt, so we only need HAL_UARTEx_RxEventCallback.
+/* -----------------------
+ * HAL_UARTEx_RxEventCallback -- this is the HAL weak function we override.
+ * It fires on every DMA event (idle, half-transfer, transfer-complete).
+ *
+ * gps_on_rx_event() is the only call that actually matters for the driver.
+ * The debug callback above can be removed once testing is done.
+ * ----------------------- */
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef* huart, uint16_t Size) {
     if (huart == &huart5) {
         debug_uart_callback(huart, Size);  // stuff for debugging, delete once not needed
@@ -206,49 +197,89 @@ int main(void) {
     MX_USB_OTG_FS_PCD_Init();
     MX_UART5_Init();
     /* USER CODE BEGIN 2 */
-    console_print("testing console printing\n\r");
+    console_print("--- GPS driver starting ---\r\n");
 
-    // init GPS driver
+    /* Step 1: initialize internal driver state.
+     * Sets up the ring buffer, parser, and UART handler structs.
+     * Does NOT start DMA yet. */
     gps_init(&huart5, &gps_rb, gps_rb_storage, gps_dma_buf);
 
-    // comment out if not switching gps baud!
-    // save = 0x01 (temp change, i.e. resets back to previously set baud rate with next power cycle).
-    // save = 0x07 (permenant change, i.e. must call this function again to change baud rate)
-    //	if (gps_switch_baud(&huart5, (uint32_t) 115200, /* save = */ (uint8_t) 0x07) != HAL_OK) {
-    //		console_print("Baud switch error :( \n\r");
-    //		Error_Handler();
-    //	} else { // enable this when attempting to implement a permenant change
-    //			 // pause here and blink to show that the change has been made, stop program, reset L4 baudrate to match new
-    //			 // gps baud rate
-    //		while (1) {
-    //			HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin); // use a DIFFERENT LED than Error_Handler
-    //			HAL_Delay(500);  // slow blink
-    //		}
-    //	}
+    /* Step 2: configure the GPS module over UBX.
+     *
+     * Can make permenant or temporary changes by changing UBX_LAYERS in constants.h
+     *
+     * first boot: change gps baud to whatever needed:
+     * 		- modify values in constants.h
+     * 		- set reinit_baud == true
+     *
+     * Cannot change fix rate at the same time as baud rate
+     *
+     * Changing nmea outputs and fix rate:
+     * 		- modify fix rate in constants.h
+     * 		- set reinit_baud == false, reinit_nmea_rate == true
+     *
+     * No changes:
+     * 		- set reinit_baud == false, reinit_nmea_rate == false
+     *
+     * Current setup:
+     *      - GPS already has 115200 saved from a previous run
+     *      - NMEA/rate config has already been applied and saved.
+     *      - Both flags are false so no UBX commands are sent on this boot
+     * */
+    GPS_CfgStatus cfg = gps_configure(&huart5, /*reinit_baud*/ false, /*reinit_nmea_rate*/
+                                      false);
+    if (cfg != GPS_CFG_OK) {
+        console_print("GPS config failed\r\n");
+        Error_Handler();
+    }
 
-    // after baud switch, re-arm RX
+    /* Step 3: start DMA receive.
+     * This must happen AFTER gps_configure() since gps_configure() uses
+     * blocking HAL_UART_Transmit/Receive which conflicts with active DMA. */
     if (!gps_start()) {
-        console_print("gps uart start error \n\r");
+        console_print("gps uart start error \r\n");
         Error_Handler();
     }
     console_print("gps uart started! \r\n");
+
     /* USER CODE END 2 */
 
     /* Infinite loop */
     /* USER CODE BEGIN WHILE */
+
     uint32_t last_print = 0;
-    console_print("about to enter while loop \n\r");
-    char buf[64];  // for the sake of debugging, delete later
+    char buf[128];  // for the sake of debugging
 
     while (1) {
-        gps_process();                               // parse data in ring buffer
-        if ((HAL_GetTick() - last_print) >= 1000) {  // 1 Hz print
+        /* gps_process() drains the ring buffer and feeds bytes into the
+         * NMEA parser. Call this as often as possible so sentences are
+         * assembled and the fix struct stays current. */
+        gps_process();
 
+        /* print a status update once per second for debugging */
+        if ((HAL_GetTick() - last_print) >= 1000) {
             last_print = HAL_GetTick();
-            snprintf(buf, sizeof(buf), "events:%lu bytes:%lu\r\n",
-                     gps_rx_events, gps_rx_bytes);  // for debugging purpose
+
+            /* raw DMA event counters -- confirms the callback is firing */
+            snprintf(buf, sizeof(buf),
+                     "rx_events:%lu  bytes_last:%lu  idle:%lu  ht:%lu  tc:%lu\r\n",
+                     gps_rx_events, gps_rx_bytes, gps_idle_events, gps_ht_events,
+                     gps_tc_events);
             console_print(buf);
-            print_gps_fix();  // print to console
+
+            /* latest GPS fix data */
+            print_gps_fix();
+
+            /* parser stats -- useful for confirming gps_configure() worked.
+             * After a successful config you should see:
+             *   seen == gga  (every sentence is GGA, none ignored)
+             *   ign  == 0    (no stray RMC/GSV getting through)
+             *   fail == 0    (no checksum errors) */
+            print_gps_stats();
+
+            // print new lines for some seperation and clarity in the console
+            console_print("\r\n");
+            console_print("\r\n");
         }
     }
     /* USER CODE END WHILE */
@@ -497,283 +528,50 @@ static void MX_GPIO_Init(void) {
 }
 
 /* USER CODE BEGIN 4 */
-/************************************
- * functions to print to console
- ************************************/
-// print to console
-static void console_print(const char* s) {
+/* console_print -- blocking transmit to LPUART1 (ST-Link virtual COM port).
+ * Used only for debugging. */
+void console_print(const char* s) {
     if (!s)
         return;
     HAL_UART_Transmit(&hlpuart1, (uint8_t*)s, strlen(s), 2000);
 }
 
-// implemented for the sake of debugging a specific feature, this can be deleted
-static void console_print_bytes(const uint8_t* buf, uint16_t len) {
-    char tmp[8];
-
-    for (uint16_t i = 0; i < len; i++) {
-        uint8_t c = buf[i];
-
-        // printable ASCII
-        if (c >= 32 && c <= 126) {
-            HAL_UART_Transmit(&hlpuart1, &c, 1, 100);
-        } else {
-            // print hex for non-printable
-            int n = snprintf(tmp, sizeof(tmp), "\\x%02X", c);
-            HAL_UART_Transmit(&hlpuart1, (uint8_t*)tmp, n, 100);
-        }
-    }
-}
-
-// get gps data, and print
-static void print_gps_fix() {
+/* print_gps_fix -- reads the latest fix from the driver and prints it.
+ * "Elapsed time" tells you how many ms ago the last valid fix arrived,
+ * which helps confirm the fix rate is working as expected. */
+static void print_gps_fix(void) {
     GpsFix fix;
-    char msg[160];
+    char msg[128];
 
-    // try to get latest fix
     if (!get_fix(&fix)) {
-        snprintf(msg, sizeof(msg), "GPS: no valid fix\r\n");
-        console_print(msg);
+        console_print("GPS: no valid fix \r\n");
         return;
     }
-    uint32_t age = HAL_GetTick() - fix.last_update_ms;  // compute how old the fix is
-    // snprintf(msg, sizeof(msg),
-    //          "GPS valid: Latitude = %.6f | Longitude = %.6f | Altitude = %.2fm | "
-    //          "Speed = %.2fm/s | Satellites Connected = %u | Elapsed time = %lums\r\n",
-    //          fix.lat, fix.lon, fix.alt, fix.speed_mps, fix.satellites_used, age);
 
-    // print only lat, lon, and satalites connected
+    uint32_t age_ms = HAL_GetTick() - (uint32_t)fix.last_update_ms;
+
     snprintf(msg, sizeof(msg),
-             "GPS valid: Latitude = %.6f | Longitude = %.6f | "
-             "Satellites Connected = %u | Elapsed time = %lums\r\n",
-             fix.lat, fix.lon, fix.satellites_used, age);
-
+             "GPS fix: lat = %.6f | lon = %.6f | sats = %u | alt = %.1fm | age = %lums\r\n",
+             fix.lat, fix.lon, fix.satellites_used, fix.alt, age_ms);
     console_print(msg);
 }
 
-/************************************
- * functions to configure neom9n
- ************************************/
-// UBX 8-bit Fletcher checksum over UBX-CFG-VALSET payload as defied by (u-blox, pg. 48)
-static void ubx_checksum(const uint8_t* buffer, uint16_t len, uint8_t* ck_a,
-                         uint8_t* ck_b) {
-    uint8_t a = 0, b = 0;
-    for (uint16_t i = 0; i < len; i++) {
-        a = a + buffer[i];
-        b = b + a;
-    }
-    *ck_a = a;
-    *ck_b = b;
-}
+/* print_gps_stats -- prints parser and drop counters.
+ * Useful during initial testing to verify the GPS config is working and
+ * no data is being lost. Safe to call in the main loop. */
+static void print_gps_stats(void) {
+    GpsStats stats;
+    char msg[128];
 
-// for getting the ubx ack or nak messages
-typedef enum {
-    STATE_SYNC1,
-    STATE_SYNC2,
-    STATE_CLASS,
-    STATE_ID,
-    STATE_LEN1,
-    STATE_LEN2,
-    STATE_PAYLOAD,
-    STATE_CKA,
-    STATE_CKB
-} ubx_state_t;
+    get_stats(&stats);
+    size_t dropped = get_dropped_bytes();  // reads and clears the drop counter
 
-// after sending package to gps to change anything, wait to see if checksum was validated
-// and there was no data corruption. Returns false if checksum failed and package rejected
-// NOTE: function currently not working
-static bool ubx_wait_ack(UART_HandleTypeDef* huart, uint8_t cls, uint8_t id,
-                         uint32_t timeout_ms) {
-    /* (u-blox, pgs. 48, 54)
-     * for CFG (config) format messages to neom9n, the gps will respond back with 1 of 2 output resposes:
-     *	- UBX-ACK-ACK (accepted), UBX-ACK-NAK (rejected)
-     *	- each message will be 2 bytes long
-     *
-     * ubx packet = overhead + payload
-     * overhead is always 8 bytes: (header, class, id, length field, checksum)
-     * every packet will have an overhead
-     * payload varies in size
-     * UBX-ACK-ACK and NAK: 10 bytes (payload is 2 bytes)
-     */
-
-    // // -- ubx packet -- //
-    // const uint8_t preambleACK[] = {0xB5, 0x62, 0x05, 0x01, 0x02};  // header, class, id, length field
-    // const uint8_t preambleNAK[] = {0xB5, 0x62, 0x05, 0x00, 0x02};
-    // uint8_t payload[2];
-    // uint8_t ck_a, ck_b;  // checksum
-    uint32_t start = HAL_GetTick();
-    uint8_t buf;
-    ubx_state_t state = STATE_SYNC1;  // starting state
-
-    uint8_t msg_class, msg_id;
-    uint16_t payload_len;
-    uint8_t payload[2];
-    uint8_t payload_idx = 0;
-    uint8_t ck_a_rx, ck_b_rx;
-
-    // This buffer holds the bytes for checksum calculation (Class, ID, LenL, LenH, Payload[0], Payload[1])
-    uint8_t ck_buf[6];
-
-    while ((HAL_GetTick() - start) < timeout_ms) {
-        if (HAL_UART_Receive(huart, &buf, 1, 2) != HAL_OK) {
-            continue;
-        }
-
-        // state machine for getting messsage
-        switch (state) {
-            case STATE_SYNC1:  // get the first header byte
-                if (buf == 0xB5)
-                    state = STATE_SYNC2;
-                break;
-            case STATE_SYNC2:  // next header byte
-                state = (buf == 0x62) ? STATE_CLASS : STATE_SYNC1;
-                break;
-            case STATE_CLASS:
-                msg_class = ck_buf[0] = buf;  // start of checksum bytes
-                state = STATE_ID;
-                break;
-            case STATE_ID:
-                msg_id = ck_buf[1] = buf;
-                state = STATE_LEN1;
-                break;
-            case STATE_LEN1:
-                payload_len = ck_buf[2] = buf;  // Length Low Byte
-                state = STATE_LEN2;
-                break;
-            case STATE_LEN2:
-                payload_len |= (buf << 8);  // Length High Byte
-                payload_idx = 0;
-                ck_buf[3] = buf;
-                state = (payload_len == 2) ? STATE_PAYLOAD : STATE_SYNC1;  // We only care about 2-byte ACKs
-                break;
-            case STATE_PAYLOAD:
-                payload[payload_idx] = ck_buf[4 + payload_idx] = buf;
-                payload_idx++;
-                if (payload_idx >= 2)
-                    state = STATE_CKA;
-                break;
-            case STATE_CKA:
-                ck_a_rx = buf;
-                state = STATE_CKB;
-                break;
-            case STATE_CKB:
-                ck_b_rx = buf;
-                // -- perform checksum validation -- //
-                uint8_t calc_a, calc_b;
-                ubx_checksum(ck_buf, 6, &calc_a, &calc_b);
-
-                // --- Packet is fully received, check what it is --- //
-                // check that checksum passed and the message is from ACK class
-                if ((calc_a == ck_a_rx && calc_b == ck_b_rx) && (msg_class == 0x05)) {
-                    bool matches_request = (payload[0] == cls && payload[1] == id);
-
-                    if (matches_request) {
-                        if (msg_id == 0x01)  // 0x01 = ACK
-                            return true;
-                        else if (msg_id == 0x00)  // 0x00 = NAK
-                            return false;
-                    }
-                }
-                state = STATE_SYNC1;  // Reset to look for next packet
-                break;
-        }
-    }
-    return true;
-}
-
-// Send UBX-CFG-VALSET to set CFG-UART1-BAUDRATE (currently set up to be temporary change), then switch STM32 UART5 to match.
-static HAL_StatusTypeDef gps_switch_baud(UART_HandleTypeDef* huart_gps,
-                                         uint32_t newBaud, uint8_t save_mode) {
-    console_print("gps_switch_baud debugging: entering gps_switch_baud\r\n");
-    /* To change the baud rate of the neom9n, must send a complete UBX packet with required details
-     * as defied by (u-blox, pg. 89-91) */
-
-    // UBX-CFG-VALSET packet for 115200 Baud on UART1
-    uint8_t pkt[20];  // header == 4 bytes, payload == 12 bytes,
-
-    pkt[0] = 0xB5;
-    pkt[1] = 0x62;  // header
-    pkt[2] = 0x06;
-    pkt[3] = 0x8A;  // Class/ID
-    pkt[4] = 0x0C;
-    pkt[5] = 0x00;  // Length of payload (12 bytes: 4 config + 8 key/val)
-
-    // --- paylod ---
-    // to save the baud rate change (and any other change made), set byte 1 => 0x07 (save to ram, bbr, and flash layers)
-    // to just test a change but not save, set byte 1 => 0x01 (saves just to ram)
-    pkt[6] = 0x00;       // Byte 0: set to 0x00
-    pkt[7] = save_mode;  // Byte 1: layers (0x01 = save to RAM only (temp. change for testing purposes))
-    pkt[8] = 0x00;
-    pkt[9] = 0x00;  // Byte 2-3: 0x00
-
-    // Key ID for UART1 on neom9n = 0x40520001 -> little endian: 01 00 52 40
-    pkt[10] = 0x01;
-    pkt[11] = 0x00;
-    pkt[12] = 0x52;
-    pkt[13] = 0x40;
-
-    // new baud rate in little endian
-    pkt[14] = (uint8_t)(newBaud & 0xFF);
-    pkt[15] = (uint8_t)((newBaud >> 8) & 0xFF);
-    pkt[16] = (uint8_t)((newBaud >> 16) & 0xFF);
-    pkt[17] = (uint8_t)((newBaud >> 24) & 0xFF);
-
-    // Checksum (of the payload -> pkt[2] for class + id + payload_length(2) + payload(12). i.e. 16 bytes)
-    uint8_t ck_a, ck_b;
-    ubx_checksum(&pkt[2], 16, &ck_a, &ck_b);
-    pkt[18] = ck_a;
-    pkt[19] = ck_b;
-
-    const uint16_t pkt_length = 20;
-
-    // Stop recieving while switching baud rate
-    HAL_UART_AbortReceive(huart_gps);
-    __HAL_UART_DISABLE_IT(huart_gps, UART_IT_RXNE);
-    __HAL_UART_DISABLE_IT(huart_gps, UART_IT_IDLE);
-
-    // Send at CURRENT baud (must match current GPS baud - before changes)
-    if (HAL_UART_Transmit(huart_gps, pkt, pkt_length, 200) != HAL_OK) {
-        console_print("gps_switch_baud debugging: HAL_UART_Transmit error\n\r");
-        return HAL_ERROR;
-    }
-
-    // check that no data corruption occured and the checksum was validated by the gps
-    // Wait for confirmation from GPS at OLD baud
-    if (!ubx_wait_ack(huart_gps, 0x06, 0x8A, 2000)) {
-        console_print("gps_switch_baud debugging: command rejected \r\n");
-        return HAL_ERROR;  // GPS didn’t accept it
-    } else
-        console_print("gps_switch_baud debugging: ack worked!\r\n");
-
-    // Give GPS time to switch UART baud
-    // neom9n integration module reccomends at least 100 ms
-    // (pg 26 has good info on why change baud rate and how)
-    HAL_Delay(200);
-
-    // Switch STM32 UART baud to match
-    if (HAL_UART_DeInit(huart_gps) != HAL_OK) {
-        return HAL_ERROR;
-    }
-
-    huart_gps->Init.BaudRate = newBaud;
-    if (HAL_UART_Init(huart_gps) != HAL_OK) {
-        return HAL_ERROR;
-    }
-
-    //    // idk what this does but chatgbt really wanted it
-    //    if (HAL_UARTEx_SetTxFifoThreshold(huart_gps, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK) {
-    //        return HAL_ERROR;
-    //    }
-    //
-    //    if (HAL_UARTEx_SetRxFifoThreshold(huart_gps, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK) {
-    //        return HAL_ERROR;
-    //    }
-    //
-    //    if (HAL_UARTEx_DisableFifoMode(huart_gps) != HAL_OK) {
-    //        return HAL_ERROR;
-    //    }
-
-    return HAL_OK;
+    snprintf(msg, sizeof(msg),
+             "stats: seen = %u  gga = %u  ign = %u  checksum_fail = %u  dropped = %u\r\n",
+             (unsigned)stats.sentences_seen, (unsigned)stats.parsed_gga_count,
+             (unsigned)stats.ignored_sentences,
+             (unsigned)stats.checksum_failure, (unsigned)dropped);
+    console_print(msg);
 }
 
 /* USER CODE END 4 */

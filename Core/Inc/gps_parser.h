@@ -32,7 +32,6 @@ typedef struct {
     double lat;               // lattitude
     double lon;               // longitude
     float alt;                // altitude
-    float speed_mps;          // meters per second. (converted from RMC knots)
     uint8_t satellites_used;  // from data sent by GGA
     size_t last_update_ms;    // can measure navigation rate / fix rate (hz) (default is 1Hz)
 } GpsFix;
@@ -42,10 +41,8 @@ typedef struct {
     size_t sentences_seen;
     size_t checksum_failure;
     size_t valid_sentences;
-    size_t line_overflow_drops;    // sentence too long / buffer overflow
-    size_t ring_buffer_overflows;  // FIFO full, data lost
+    size_t line_overflow_drops;  // sentence too long / buffer overflow
     size_t parsed_gga_count;
-    size_t parsed_rmc_count;
     size_t ignored_sentences;
     size_t max_sentence_length_seen;
 } GpsStats;  // for the sake of debugging, can be removed later if needed
