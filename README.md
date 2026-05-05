@@ -181,28 +181,6 @@ if (!gps_start()) {
     Error_Handler();
 }
 ```
-
-### `gps_init()`
-
-Initializes software state.
-This sets up:
-* UART handle
-* DMA buffer
-* software ring buffer
-* parser state
-* fix/stat state
-It does not start DMA.
-
-### `gps_configure()`
-
-Sends UBX configuration commands to the GPS.
-This must run before `gps_start()` because configuration uses blocking UART transmit/receive. Running GPS receive DMA at the same time can interfere with ACK handling.
-
-### `gps_start()`
-
-Starts UART receive-to-idle DMA.
-After this, incoming GPS bytes are handled by the UART/DMA callback and processed by `gps_process()`.
-
 ---
 
 ## GPS Configuration Modes
